@@ -1,0 +1,9 @@
+dashboard/data/
+__pycache__/
+*.pyc
+.env
+*.db
+.superpowers/
+*.bin
+*.zip
+drivers/
