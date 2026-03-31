@@ -21,7 +21,10 @@ def parse_packet(raw_json: "str | bytes") -> "dict | None":
 
     node_id = f"!{from_num:08x}"
     raw_ts = data.get("timestamp", 0)
-    timestamp = datetime.fromtimestamp(raw_ts, tz=timezone.utc).isoformat()
+    if raw_ts and raw_ts > 0:
+        timestamp = datetime.fromtimestamp(raw_ts, tz=timezone.utc).isoformat()
+    else:
+        timestamp = datetime.now(tz=timezone.utc).isoformat()
 
     # Destination node (broadcast = 0xFFFFFFFF)
     to_num = data.get("to")
