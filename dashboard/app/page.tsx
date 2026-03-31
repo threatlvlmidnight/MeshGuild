@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabase, Node, Alert } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
+import AuthNav from "@/components/auth-nav";
 
 // --- Color helpers ---
 
@@ -189,9 +190,12 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">MeshGuild</h1>
-          <p className="text-gray-400 text-sm mt-1">OKC Crew — Node Health</p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-white">MeshGuild</h1>
+            <p className="text-gray-400 text-sm mt-1">OKC Crew — Node Health</p>
+          </div>
+          <AuthNav />
         </div>
 
         <AlertsBanner alerts={alerts} />

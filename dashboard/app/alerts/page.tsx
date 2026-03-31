@@ -4,11 +4,22 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabase, Alert } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
+import type { User } from "@supabase/supabase-js";
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAcknowledged, setShowAcknowledged] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const client = getSupabase();
+    client.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+      setAuthChecked(true);
+    });
+  }, []);
 
   async function fetchAlerts() {
     const client = getSupabase();
@@ -48,22 +59,32 @@ export default function AlertsPage() {
   }, [showAcknowledged]);
 
   async function dismiss(alertId: number) {
+    if (!user) return;
     const client = getSupabase();
-    await client
+    const { error } = await client
       .from("alerts")
       .update({ acknowledged: true })
       .eq("id", alertId);
+    if (error) {
+      console.error("Failed to dismiss alert:", error.message);
+      return;
+    }
     setAlerts((prev) => prev.filter((a) => a.id !== alertId));
   }
 
   async function dismissAll() {
+    if (!user) return;
     const client = getSupabase();
     const ids = alerts.filter((a) => !a.acknowledged).map((a) => a.id);
     if (ids.length === 0) return;
-    await client
+    const { error } = await client
       .from("alerts")
       .update({ acknowledged: true })
       .in("id", ids);
+    if (error) {
+      console.error("Failed to dismiss alerts:", error.message);
+      return;
+    }
     setAlerts((prev) =>
       showAcknowledged
         ? prev.map((a) => (ids.includes(a.id) ? { ...a, acknowledged: true } : a))
@@ -103,13 +124,21 @@ export default function AlertsPage() {
               />
               Show dismissed
             </label>
-            {activeCount > 0 && (
+            {activeCount > 0 && user && (
               <button
                 onClick={dismissAll}
                 className="text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded transition-colors"
               >
                 Dismiss all ({activeCount})
               </button>
+            )}
+            {activeCount > 0 && authChecked && !user && (
+              <Link
+                href="/login"
+                className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                Sign in to dismiss
+              </Link>
             )}
           </div>
         </div>
@@ -153,7 +182,7 @@ export default function AlertsPage() {
                     {alert.node_id}
                   </Link>
                 </div>
-                {!alert.acknowledged && (
+                {!alert.acknowledged && user && (
                   <button
                     onClick={() => dismiss(alert.id)}
                     className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded transition-colors shrink-0"

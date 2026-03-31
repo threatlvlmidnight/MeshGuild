@@ -1,4 +1,5 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 let _client: SupabaseClient | null = null;
 
@@ -13,7 +14,7 @@ export function getSupabase(): SupabaseClient {
       );
     }
 
-    _client = createClient(url, key);
+    _client = createBrowserClient(url, key);
   }
   return _client;
 }
@@ -35,5 +36,12 @@ export interface Alert {
   alert_type: string;
   message: string;
   acknowledged: boolean;
+  created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  email: string;
+  role: "admin" | "viewer";
   created_at: string;
 }
