@@ -55,6 +55,9 @@ class SupabaseWriter:
 
         self.client.table("nodes").upsert(row).execute()
 
+        # Update running stats after upsert
+        self._update_node_stats(node_id, packet)
+
     def insert_telemetry(self, packet: dict, network_id: str):
         row = {
             "node_id": packet["node_id"],
@@ -66,6 +69,148 @@ class SupabaseWriter:
             "uptime_seconds": packet.get("uptime_seconds"),
         }
         self.client.table("telemetry").insert(row).execute()
+
+    def _update_node_stats(self, node_id: str, packet: dict):
+        """Incrementally update running stats on the nodes row after each packet."""
+        node = self.get_node(node_id)
+        if not node:
+            return
+
+        updates = {
+            "packets_total": (node.get("packets_total") or 0) + 1,
+        }
+
+        rssi = packet.get("rssi")
+        if rssi is not None:
+            old_avg = node.get("avg_rssi")
+            old_best = node.get("best_rssi")
+            total = updates["packets_total"]
+            if old_avg is not None:
+                updates["avg_rssi"] = round(old_avg + (rssi - old_avg) / total, 1)
+            else:
+                updates["avg_rssi"] = float(rssi)
+            if old_best is None or rssi > old_best:
+                updates["best_rssi"] = rssi
+
+        snr = packet.get("snr")
+        if snr is not None:
+            old_avg_snr = node.get("avg_snr")
+            old_best_snr = node.get("best_snr")
+            total = updates["packets_total"]
+            if old_avg_snr is not None:
+                updates["avg_snr"] = round(old_avg_snr + (snr - old_avg_snr) / total, 1)
+            else:
+                updates["avg_snr"] = float(snr)
+            if old_best_snr is None or snr > old_best_snr:
+                updates["best_snr"] = snr
+
+        bat = packet.get("battery_level")
+        if bat is not None:
+            old_min = node.get("battery_min")
+            if old_min is None or bat < old_min:
+                updates["battery_min"] = bat
+
+        (
+            self.client.table("nodes")
+            .update(updates)
+            .eq("id", node_id)
+            .execute()
+        )
+
+    def recompute_all_stats(self, network_id: str):
+        """Full recompute of packet counts and uptime for all nodes. Run hourly."""
+        now = datetime.now(timezone.utc)
+        day_ago = (now - timedelta(hours=24)).isoformat()
+        week_ago = (now - timedelta(days=7)).isoformat()
+
+        nodes = self.get_all_nodes(network_id)
+        for node in nodes:
+            node_id = node["id"]
+
+            # Total packets
+            total_res = (
+                self.client.table("telemetry")
+                .select("id", count="exact")
+                .eq("node_id", node_id)
+                .execute()
+            )
+            # Packets in last 24h
+            day_res = (
+                self.client.table("telemetry")
+                .select("id", count="exact")
+                .eq("node_id", node_id)
+                .gte("timestamp", day_ago)
+                .execute()
+            )
+            # Packets in last 7d
+            week_res = (
+                self.client.table("telemetry")
+                .select("id", count="exact")
+                .eq("node_id", node_id)
+                .gte("timestamp", week_ago)
+                .execute()
+            )
+
+            # Uptime percentage: (hours_existed - offline_hours) / hours_existed
+            created = node.get("created_at")
+            uptime_pct = None
+            if created:
+                created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                hours_existed = max((now - created_dt).total_seconds() / 3600, 1)
+                offline_count = self.count_offline_alerts_since(
+                    node_id, created_dt.isoformat()
+                )
+                # Rough estimate: each offline alert ~ 1 hour of downtime
+                offline_hours = offline_count * 1.0
+                uptime_pct = round(
+                    max(0, min(100, ((hours_existed - offline_hours) / hours_existed) * 100)),
+                    1,
+                )
+
+            # Current streak: days since last offline alert
+            current_streak = 0
+            last_offline = (
+                self.client.table("alerts")
+                .select("created_at")
+                .eq("node_id", node_id)
+                .eq("alert_type", "NODE_OFFLINE")
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if last_offline.data:
+                last_dt = datetime.fromisoformat(
+                    last_offline.data[0]["created_at"].replace("Z", "+00:00")
+                )
+                current_streak = max(0, (now - last_dt).days)
+            elif created:
+                created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                current_streak = (now - created_dt).days
+
+            longest = node.get("longest_streak_days") or 0
+            if current_streak > longest:
+                longest = current_streak
+
+            updates = {
+                "packets_total": total_res.count or 0,
+                "packets_24h": day_res.count or 0,
+                "packets_7d": week_res.count or 0,
+                "uptime_pct": uptime_pct,
+                "offline_count": self.count_offline_alerts_since(
+                    node_id,
+                    (node.get("created_at") or now.isoformat()),
+                ),
+                "current_streak_days": current_streak,
+                "longest_streak_days": longest,
+            }
+
+            (
+                self.client.table("nodes")
+                .update(updates)
+                .eq("id", node_id)
+                .execute()
+            )
+            print(f"[stats] {node_id}: {updates['packets_total']} total, {updates['packets_24h']} 24h, {updates['packets_7d']} 7d, uptime {uptime_pct}%")
 
     def insert_alert(self, node_id: str, network_id: str, alert_type: str, message: str):
         self.client.table("alerts").insert({

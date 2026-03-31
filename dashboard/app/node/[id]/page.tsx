@@ -246,6 +246,106 @@ export default function NodeDetail() {
           </div>
         </div>
 
+        {/* Lifetime Stats */}
+        <h2 className="text-lg font-semibold mb-4">Node Stats</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Total Packets</div>
+            <div className="text-white text-lg font-bold font-mono mt-1">
+              {(node.packets_total ?? 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Last 24h</div>
+            <div className="text-white text-lg font-bold font-mono mt-1">
+              {(node.packets_24h ?? 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Last 7 Days</div>
+            <div className="text-white text-lg font-bold font-mono mt-1">
+              {(node.packets_7d ?? 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Uptime</div>
+            <div className={`text-lg font-bold font-mono mt-1 ${
+              node.uptime_pct !== null
+                ? node.uptime_pct >= 90 ? "text-green-400"
+                : node.uptime_pct >= 70 ? "text-yellow-400"
+                : "text-red-400"
+                : "text-gray-400"
+            }`}>
+              {node.uptime_pct !== null ? `${node.uptime_pct}%` : "—"}
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Avg RSSI</div>
+            <div className="text-white text-sm font-mono mt-1">
+              {node.avg_rssi !== null ? `${node.avg_rssi} dBm` : "—"}
+            </div>
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Best RSSI</div>
+            <div className="text-green-400 text-sm font-mono mt-1">
+              {node.best_rssi !== null ? `${node.best_rssi} dBm` : "—"}
+            </div>
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Avg SNR</div>
+            <div className="text-white text-sm font-mono mt-1">
+              {node.avg_snr !== null ? `${node.avg_snr} dB` : "—"}
+            </div>
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Best SNR</div>
+            <div className="text-green-400 text-sm font-mono mt-1">
+              {node.best_snr !== null ? `${node.best_snr} dB` : "—"}
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Battery Low</div>
+            <div className={`text-sm font-mono mt-1 ${
+              node.battery_min !== null
+                ? node.battery_min >= 50 ? "text-green-400"
+                : node.battery_min >= 20 ? "text-yellow-400"
+                : "text-red-400"
+                : "text-gray-400"
+            }`}>
+              {node.battery_min !== null ? `${node.battery_min}%` : "—"}
+            </div>
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Offline Events</div>
+            <div className="text-white text-sm font-mono mt-1">
+              {node.offline_count ?? 0}
+            </div>
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Current Streak</div>
+            <div className="text-white text-sm font-mono mt-1">
+              {node.current_streak_days ?? 0}d
+            </div>
+          </div>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
+            <div className="text-gray-500 text-xs uppercase">Best Streak</div>
+            <div className="text-yellow-400 text-sm font-mono mt-1">
+              {node.longest_streak_days ?? 0}d
+            </div>
+          </div>
+        </div>
+
+        {/* First seen */}
+        {node.created_at && (
+          <div className="text-gray-500 text-xs mb-8">
+            First seen {formatDistanceToNow(new Date(node.created_at), { addSuffix: true })} &mdash; {format(new Date(node.created_at), "MMM d, yyyy")}
+          </div>
+        )}
+
         {/* XP & Level */}
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-8">
           <div className="flex items-center justify-between mb-3">

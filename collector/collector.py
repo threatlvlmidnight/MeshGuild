@@ -71,6 +71,7 @@ def main():
                 xp_engine.award_uptime_xp()
                 xp_engine.check_streaks()
                 achievement_engine.check_night_watch()
+                writer.recompute_all_stats(config.network_id)
             except Exception as e:
                 print(f"[HOURLY XP] ERROR: {e}")
 

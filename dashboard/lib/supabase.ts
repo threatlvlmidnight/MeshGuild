@@ -30,6 +30,19 @@ export interface Node {
   is_online: boolean;
   xp_total: number;
   level: number;
+  created_at: string;
+  packets_total: number;
+  packets_24h: number;
+  packets_7d: number;
+  uptime_pct: number | null;
+  avg_rssi: number | null;
+  best_rssi: number | null;
+  avg_snr: number | null;
+  best_snr: number | null;
+  battery_min: number | null;
+  offline_count: number;
+  longest_streak_days: number;
+  current_streak_days: number;
 }
 
 export interface Alert {

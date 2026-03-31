@@ -49,7 +49,7 @@ function GuildHealthBadge({ nodes }: { nodes: Node[] }) {
 export default function Leaderboard() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<"xp" | "level">("xp");
+  const [sortBy, setSortBy] = useState<"xp" | "level" | "packets" | "uptime">("xp");
 
   useEffect(() => {
     const client = getSupabase();
@@ -86,6 +86,8 @@ export default function Leaderboard() {
 
   const sorted = [...nodes].sort((a, b) => {
     if (sortBy === "xp") return (b.xp_total ?? 0) - (a.xp_total ?? 0);
+    if (sortBy === "packets") return (b.packets_total ?? 0) - (a.packets_total ?? 0);
+    if (sortBy === "uptime") return (b.uptime_pct ?? 0) - (a.uptime_pct ?? 0);
     return (b.level ?? 1) - (a.level ?? 1);
   });
 
@@ -140,6 +142,26 @@ export default function Leaderboard() {
           >
             By Level
           </button>
+          <button
+            onClick={() => setSortBy("packets")}
+            className={`text-xs px-3 py-1.5 rounded ${
+              sortBy === "packets"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-800 text-gray-400 hover:text-white"
+            }`}
+          >
+            By Packets
+          </button>
+          <button
+            onClick={() => setSortBy("uptime")}
+            className={`text-xs px-3 py-1.5 rounded ${
+              sortBy === "uptime"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-800 text-gray-400 hover:text-white"
+            }`}
+          >
+            By Uptime
+          </button>
         </div>
 
         {/* Leaderboard table */}
@@ -151,6 +173,8 @@ export default function Leaderboard() {
                 <th className="text-left p-3">Node</th>
                 <th className="text-left p-3">Level</th>
                 <th className="text-right p-3">XP</th>
+                <th className="text-right p-3 hidden sm:table-cell">Packets</th>
+                <th className="text-right p-3 hidden sm:table-cell">Uptime</th>
                 <th className="text-center p-3">Status</th>
               </tr>
             </thead>
@@ -183,6 +207,18 @@ export default function Leaderboard() {
                     </td>
                     <td className="p-3 text-right font-mono text-sm text-gray-300">
                       {(node.xp_total ?? 0).toLocaleString()}
+                    </td>
+                    <td className="p-3 text-right font-mono text-sm text-gray-300 hidden sm:table-cell">
+                      {(node.packets_total ?? 0).toLocaleString()}
+                    </td>
+                    <td className={`p-3 text-right font-mono text-sm hidden sm:table-cell ${
+                      node.uptime_pct !== null
+                        ? node.uptime_pct >= 90 ? "text-green-400"
+                        : node.uptime_pct >= 70 ? "text-yellow-400"
+                        : "text-red-400"
+                        : "text-gray-500"
+                    }`}>
+                      {node.uptime_pct !== null ? `${node.uptime_pct}%` : "—"}
                     </td>
                     <td className="p-3 text-center">
                       <span
