@@ -97,11 +97,14 @@ export default function NodeDetail() {
     async function loadAuth() {
       const { data: { user } } = await client.auth.getUser();
       if (user) {
-        const { data: profile } = await client
+        const { data: profile, error } = await client
           .from("profiles")
-          .select("role")
+          .select("*")
           .eq("id", user.id)
           .single();
+        if (error) {
+          console.error("Profile fetch error:", error);
+        }
         setIsAdmin(profile?.role === "admin");
       }
     }

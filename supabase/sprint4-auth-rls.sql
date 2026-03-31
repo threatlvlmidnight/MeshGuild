@@ -93,23 +93,13 @@ create policy "cards_select_public" on cards
 create policy "profiles_select_own" on profiles
   for select using (auth.uid() = id);
 
--- Admins can read all profiles
+-- Admins can read all profiles (uses is_admin() to avoid recursive RLS)
 create policy "profiles_select_admin" on profiles
-  for select using (
-    exists (
-      select 1 from profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+  for select using (is_admin());
 
--- Admins can update any profile role
+-- Admins can update any profile role (uses is_admin() to avoid recursive RLS)
 create policy "profiles_update_admin" on profiles
-  for update using (
-    exists (
-      select 1 from profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+  for update using (is_admin());
 
 -- ============================================================
 -- 8. Enable Realtime on profiles (for auth state)
