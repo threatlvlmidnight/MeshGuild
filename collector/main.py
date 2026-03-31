@@ -1,6 +1,8 @@
 """MeshGuild Collector — MQTT subscriber that writes to Supabase + broadcasts messages."""
 
 import json
+import os
+import subprocess
 import sys
 import time
 import threading
@@ -165,6 +167,60 @@ def main():
 
     outbound_timer = threading.Thread(target=outbound_poll_loop, daemon=True)
     outbound_timer.start()
+
+    def heartbeat_loop():
+        """Background thread: send heartbeat every 30 seconds."""
+        pid = os.getpid()
+        while True:
+            writer.send_heartbeat(pid)
+            time.sleep(30)
+
+    heartbeat_timer = threading.Thread(target=heartbeat_loop, daemon=True)
+    heartbeat_timer.start()
+
+    def ops_command_loop():
+        """Background thread: poll for ops commands every 5 seconds."""
+        while True:
+            time.sleep(5)
+            try:
+                commands = writer.poll_ops_commands()
+                for cmd in commands:
+                    cmd_type = cmd.get("command", "")
+                    cmd_id = cmd["id"]
+                    print(f"[ops] received command: {cmd_type} (id={cmd_id})")
+
+                    if cmd_type == "REBOOT_COLLECTOR":
+                        writer.update_ops_command(cmd_id, "executing", "Restarting collector...")
+                        print("[ops] REBOOT_COLLECTOR — exiting with code 42 for wrapper restart")
+                        writer.update_ops_command(cmd_id, "completed", "Collector restarted")
+                        os._exit(42)
+
+                    elif cmd_type == "RESTART_MOSQUITTO":
+                        writer.update_ops_command(cmd_id, "executing", "Restarting Mosquitto...")
+                        try:
+                            result = subprocess.run(
+                                ["brew", "services", "restart", "mosquitto"],
+                                capture_output=True, text=True, timeout=30
+                            )
+                            if result.returncode == 0:
+                                writer.update_ops_command(cmd_id, "completed", "Mosquitto restarted successfully")
+                                print(f"[ops] Mosquitto restarted: {result.stdout.strip()}")
+                            else:
+                                writer.update_ops_command(cmd_id, "failed", f"Exit {result.returncode}: {result.stderr.strip()}")
+                                print(f"[ops] Mosquitto restart failed: {result.stderr.strip()}")
+                        except Exception as e:
+                            writer.update_ops_command(cmd_id, "failed", str(e))
+                            print(f"[ops] Mosquitto restart error: {e}")
+
+                    else:
+                        writer.update_ops_command(cmd_id, "failed", f"Unknown command: {cmd_type}")
+                        print(f"[ops] Unknown command: {cmd_type}")
+
+            except Exception as e:
+                print(f"[ops] command loop error: {e}")
+
+    ops_timer = threading.Thread(target=ops_command_loop, daemon=True)
+    ops_timer.start()
 
     # Connect MQTT
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)

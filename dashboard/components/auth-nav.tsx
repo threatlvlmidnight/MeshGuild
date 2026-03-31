@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabase, Profile } from "@/lib/supabase";
-import { SignOut, Shield, UserCircle, ChatText, Radio } from "@phosphor-icons/react";
+import { SignOut, Shield, UserCircle, ChatText, Radio, Wrench } from "@phosphor-icons/react";
 import type { User } from "@supabase/supabase-js";
 
 export default function AuthNav() {
@@ -98,6 +98,16 @@ export default function AuthNav() {
         <ChatText size={14} weight="bold" />
         <span className="hidden sm:inline">SHELL</span>
       </Link>
+      {isOfficer && (
+        <Link
+          href="/ops"
+          className="flex items-center gap-1 text-xs font-mono text-terminal-amber hover:text-terminal-gold transition-colors"
+          title="Ops Control"
+        >
+          <Wrench size={14} weight="bold" />
+          <span className="hidden sm:inline">OPS</span>
+        </Link>
+      )}
       {isOfficer && (
         <Link
           href="/admin"

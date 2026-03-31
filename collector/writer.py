@@ -320,3 +320,46 @@ class SupabaseWriter:
             print("[stats] player renown recomputed")
         except Exception as e:
             print(f"[stats] renown recompute failed: {e}")
+
+    # --- Ops Commands & Heartbeat ---
+
+    def send_heartbeat(self, pid):
+        """Upsert collector heartbeat so the dashboard knows we're alive."""
+        try:
+            self.client.table("collector_heartbeat").upsert({
+                "id": "main",
+                "last_beat": datetime.now(timezone.utc).isoformat(),
+                "status": "running",
+                "pid": pid,
+            }, on_conflict="id").execute()
+        except Exception as e:
+            print(f"[heartbeat] error: {e}")
+
+    def poll_ops_commands(self):
+        """Fetch pending ops commands. Returns list of rows."""
+        try:
+            result = (
+                self.client.table("ops_commands")
+                .select("*")
+                .eq("status", "pending")
+                .order("created_at")
+                .limit(10)
+                .execute()
+            )
+            return result.data or []
+        except Exception as e:
+            print(f"[ops] poll error: {e}")
+            return []
+
+    def update_ops_command(self, cmd_id, status, result_msg=None):
+        """Update an ops command status."""
+        try:
+            update = {
+                "status": status,
+                "executed_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if result_msg:
+                update["result"] = result_msg
+            self.client.table("ops_commands").update(update).eq("id", cmd_id).execute()
+        except Exception as e:
+            print(f"[ops] update error: {e}")
