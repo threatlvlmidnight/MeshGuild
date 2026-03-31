@@ -111,7 +111,7 @@ class SupabaseWriter:
         }
         body = json.dumps({
             "messages": [{
-                "topic": "mesh-messages",
+                "topic": "realtime:mesh-messages",
                 "event": "new_message",
                 "payload": message,
             }]
