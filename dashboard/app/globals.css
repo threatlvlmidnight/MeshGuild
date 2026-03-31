@@ -78,3 +78,29 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #3a4050;
 }
+
+/* Print styles for Field Manual PDF export */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .scanline-overlay::before {
+    display: none !important;
+  }
+
+  .panel {
+    border-color: #ccc !important;
+    background: #f9f9f9 !important;
+  }
+
+  * {
+    color: black !important;
+    border-color: #ccc !important;
+  }
+
+  button, a[href="/"], a[href*="login"] {
+    display: none !important;
+  }
+}

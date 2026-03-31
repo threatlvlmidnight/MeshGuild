@@ -41,7 +41,7 @@ export default function LoginPage() {
       if (error) {
         setError(error.message);
       } else {
-        setMessage("Check your email to confirm your account.");
+        setMessage("Check your email to confirm your account. Once confirmed, sign in to begin the Rite of First Signal.");
       }
     }
 
@@ -134,6 +134,10 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-4 text-center">
+          <a href="/field-manual" className="text-terminal-muted/50 hover:text-terminal-muted text-[10px] font-mono transition-colors">
+            [ FIELD MANUAL ]
+          </a>
+          <span className="text-terminal-muted/30 mx-2">|</span>
           <a href="/" className="text-terminal-muted/50 hover:text-terminal-muted text-[10px] font-mono transition-colors">
             ← Return to operations
           </a>

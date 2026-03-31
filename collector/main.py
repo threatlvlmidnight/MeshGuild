@@ -56,6 +56,23 @@ def main():
                 print(f"[mesh-msg] {packet['node_id']}: {packet['text'][:80]}")
                 writer.broadcast_message(packet)
 
+                # Welcome bot: greet new nodes on first text message
+                node = writer.get_node(packet["node_id"])
+                if node and (node.get("packets_total") or 0) <= 3:
+                    welcome_text = (
+                        "Welcome to The Signal, operator. "
+                        "Your node has been detected. "
+                        "Visit meshguild.vercel.app to complete your Rite of First Signal."
+                    )
+                    welcome_payload = json.dumps({
+                        "type": "sendtext",
+                        "payload": welcome_text,
+                    })
+                    mc = mqtt_client_ref.get("client")
+                    if mc:
+                        mc.publish(config.mqtt_publish_topic, welcome_payload)
+                        print(f"[welcome-bot] greeted {packet['node_id']}")
+
         except Exception as e:
             print(f"[collector] Error processing message: {e}")
 

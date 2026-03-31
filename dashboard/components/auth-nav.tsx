@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabase, Profile } from "@/lib/supabase";
-import { SignOut, Shield, UserCircle, ChatText } from "@phosphor-icons/react";
+import { SignOut, Shield, UserCircle, ChatText, Radio } from "@phosphor-icons/react";
 import type { User } from "@supabase/supabase-js";
 
 export default function AuthNav() {
@@ -75,8 +75,21 @@ export default function AuthNav() {
 
   const isOfficer = profile?.role === "leader" || profile?.role === "elder";
 
+  // Check if user has a primary node (rite completed)
+  const hasNode = profile?.primary_node_id !== null && profile?.primary_node_id !== undefined;
+
   return (
     <div className="flex items-center gap-2">
+      {!hasNode && (
+        <Link
+          href="/onboarding"
+          className="flex items-center gap-1 text-xs font-mono text-terminal-amber hover:text-terminal-gold transition-colors animate-pulse-glow"
+          title="Complete Rite of First Signal"
+        >
+          <Radio size={14} weight="bold" />
+          <span className="hidden sm:inline">RITE</span>
+        </Link>
+      )}
       <Link
         href="/messages"
         className="flex items-center gap-1 text-xs font-mono text-terminal-green/70 hover:text-terminal-green transition-colors"

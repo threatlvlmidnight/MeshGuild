@@ -6,8 +6,9 @@ import { getSupabase, Node, Alert } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 import AuthNav from "@/components/auth-nav";
 import { LevelBadge } from "@/components/level-badge";
-import { Broadcast, Warning, WifiHigh, WifiSlash } from "@phosphor-icons/react";
+import { Broadcast, Warning, WifiHigh, WifiSlash, Lightning, BookOpen } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
+import type { User } from "@supabase/supabase-js";
 
 // --- Color helpers ---
 
@@ -152,27 +153,148 @@ function AlertsBanner({ alerts }: { alerts: Alert[] }) {
   );
 }
 
+// --- Public Landing Page ---
+
+function LandingPage({ stats }: { stats: { totalNodes: number; onlineNodes: number; totalOperators: number } }) {
+  return (
+    <main className="min-h-screen flex flex-col">
+      {/* Hero */}
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="max-w-2xl w-full text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <Broadcast size={48} weight="bold" className="text-terminal-green mx-auto mb-4" />
+            <h1 className="text-3xl sm:text-4xl font-bold font-mono text-terminal-green glow-green tracking-tight mb-3">
+              THE SIGNAL
+            </h1>
+            <p className="text-terminal-muted text-sm font-mono mb-8 max-w-md mx-auto">
+              A fraternal order of signal operators maintaining a decentralized mesh communication network.
+              Hold the signal. Push back The Silence.
+            </p>
+          </motion.div>
+
+          {/* Live Stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="grid grid-cols-3 gap-4 mb-8"
+          >
+            <div className="panel p-4">
+              <div className="text-2xl font-bold font-mono text-terminal-green">{stats.totalNodes}</div>
+              <div className="text-[10px] font-mono text-terminal-muted uppercase tracking-widest mt-1">NODES</div>
+            </div>
+            <div className="panel p-4">
+              <div className="text-2xl font-bold font-mono text-terminal-green">{stats.onlineNodes}</div>
+              <div className="text-[10px] font-mono text-terminal-muted uppercase tracking-widest mt-1">ONLINE</div>
+            </div>
+            <div className="panel p-4">
+              <div className="text-2xl font-bold font-mono text-terminal-green">{stats.totalOperators}</div>
+              <div className="text-[10px] font-mono text-terminal-muted uppercase tracking-widest mt-1">OPERATORS</div>
+            </div>
+          </motion.div>
+
+          {/* Signal Strength */}
+          {stats.totalNodes > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="mb-8"
+            >
+              {(() => {
+                const pct = Math.round((stats.onlineNodes / stats.totalNodes) * 100);
+                return (
+                  <div className="panel p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-mono text-terminal-muted uppercase tracking-widest">SIGNAL STRENGTH</span>
+                      <span className="text-sm font-mono font-bold text-terminal-green">{pct}%</span>
+                    </div>
+                    <div className="h-1.5 bg-terminal-border rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-terminal-green rounded-full transition-all duration-1000"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </motion.div>
+          )}
+
+          {/* CTAs */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.4 }}
+            className="flex flex-col sm:flex-row gap-3 justify-center"
+          >
+            <Link
+              href="/login"
+              className="px-6 py-3 bg-terminal-green/10 border border-terminal-green/40 text-terminal-green font-mono font-bold text-sm rounded-lg hover:bg-terminal-green/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <Lightning size={16} weight="bold" />
+              REQUEST OPERATOR ACCESS
+            </Link>
+            <Link
+              href="/field-manual"
+              className="px-6 py-3 bg-terminal-panel border border-terminal-border text-terminal-muted font-mono font-bold text-sm rounded-lg hover:text-foreground hover:border-terminal-green/30 transition-colors flex items-center justify-center gap-2"
+            >
+              <BookOpen size={16} weight="bold" />
+              THE FIELD MANUAL
+            </Link>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="border-t border-terminal-border p-4 text-center">
+        <p className="text-terminal-muted/50 text-[10px] font-mono uppercase tracking-widest">
+          Maintain the mesh &middot; Hold the signal &middot; Push back The Silence
+        </p>
+      </div>
+    </main>
+  );
+}
+
 // --- Main page ---
 
 export default function Home() {
+  const [user, setUser] = useState<User | null | undefined>(undefined);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [operatorCount, setOperatorCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const client = getSupabase();
 
     async function load() {
-      const [{ data: nodeData }, { data: alertData }] = await Promise.all([
-        client.from("nodes").select("*").order("long_name"),
-        client
+      // Check auth
+      const { data: { user: authUser } } = await client.auth.getUser();
+      setUser(authUser);
+
+      // Always load nodes for stats (public via RLS)
+      const { data: nodeData } = await client.from("nodes").select("*").order("long_name");
+      setNodes(nodeData ?? []);
+
+      // Operator count
+      const { count } = await client.from("profiles").select("id", { count: "exact", head: true }).eq("approved", true);
+      setOperatorCount(count ?? 0);
+
+      // Alerts only for authenticated users
+      if (authUser) {
+        const { data: alertData } = await client
           .from("alerts")
           .select("*")
           .eq("acknowledged", false)
-          .order("created_at", { ascending: false }),
-      ]);
-      setNodes(nodeData ?? []);
-      setAlerts(alertData ?? []);
+          .order("created_at", { ascending: false });
+        setAlerts(alertData ?? []);
+      }
+
       setLoading(false);
     }
     load();
@@ -223,6 +345,31 @@ export default function Home() {
 
   const onlineCount = nodes.filter((n) => n.is_online).length;
 
+  // Loading state
+  if (user === undefined || loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="text-terminal-muted text-sm font-mono animate-pulse-glow">
+          Scanning frequencies...
+        </div>
+      </main>
+    );
+  }
+
+  // Unauthenticated → landing page
+  if (!user) {
+    return (
+      <LandingPage
+        stats={{
+          totalNodes: nodes.length,
+          onlineNodes: onlineCount,
+          totalOperators: operatorCount,
+        }}
+      />
+    );
+  }
+
+  // Authenticated → full dashboard
   return (
     <main className="min-h-screen p-4 sm:p-6">
       <div className="max-w-5xl mx-auto">
