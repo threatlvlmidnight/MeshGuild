@@ -68,6 +68,18 @@ def main():
     checker = threading.Thread(target=offline_checker, daemon=True)
     checker.start()
 
+    def hourly_stats_loop():
+        """Background thread: recompute node stats every hour."""
+        while True:
+            time.sleep(3600)
+            try:
+                writer.recompute_all_stats()
+            except Exception as e:
+                print(f"[collector] Stats recompute error: {e}")
+
+    stats_timer = threading.Thread(target=hourly_stats_loop, daemon=True)
+    stats_timer.start()
+
     # Connect MQTT
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
