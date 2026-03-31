@@ -42,6 +42,10 @@ def main():
             if packet is None:
                 return
 
+            # Ignore our own outbound echo-backs (type=sendtext published by us)
+            if packet["packet_type"] == "sendtext":
+                return
+
             print(f"[collector] {packet['node_id']} | type={packet['packet_type']} rssi={packet['rssi']} snr={packet['snr']} bat={packet['battery_level']}")
 
             writer.upsert_node(packet)
