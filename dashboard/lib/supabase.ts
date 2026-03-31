@@ -57,8 +57,23 @@ export interface Alert {
 export interface Profile {
   id: string;
   email: string;
-  role: "admin" | "viewer";
+  role: "member" | "elder" | "leader";
+  callsign: string;
+  rank_title: string;
+  rank_level: number;
+  renown: number;
+  influence: number;
+  primary_node_id: string | null;
+  approved: boolean;
+  join_date: string;
   created_at: string;
+}
+
+export interface NodeOwnership {
+  id: number;
+  player_id: string;
+  node_id: string;
+  claimed_at: string;
 }
 
 export interface XpEvent {
@@ -85,7 +100,7 @@ export interface Card {
   earned_at: string;
 }
 
-// Level system
+// Node level system (kept for backward compat — nodes still earn XP)
 export const LEVEL_THRESHOLDS = [
   { level: 1, xp: 0, title: "Beacon" },
   { level: 2, xp: 500, title: "Relay" },
@@ -94,6 +109,64 @@ export const LEVEL_THRESHOLDS = [
   { level: 5, xp: 15000, title: "Sentinel" },
   { level: 6, xp: 50000, title: "Archnode" },
 ];
+
+// Player rank thresholds by role
+export const MEMBER_RANKS = [
+  { level: 1, renown: 0, title: "Initiate I" },
+  { level: 2, renown: 100, title: "Initiate II" },
+  { level: 3, renown: 300, title: "Initiate III" },
+  { level: 4, renown: 750, title: "Signal Runner I" },
+  { level: 5, renown: 1500, title: "Signal Runner II" },
+  { level: 6, renown: 3000, title: "Signal Runner III" },
+  { level: 7, renown: 5000, title: "Relay Adept I" },
+  { level: 8, renown: 8000, title: "Relay Adept II" },
+  { level: 9, renown: 12000, title: "Relay Adept III" },
+  { level: 10, renown: 18000, title: "Circuit Warden I" },
+  { level: 11, renown: 25000, title: "Circuit Warden II" },
+  { level: 12, renown: 35000, title: "Circuit Warden III" },
+];
+
+export const ELDER_RANKS = [
+  { level: 1, renown: 0, title: "Sentinel I" },
+  { level: 2, renown: 2000, title: "Sentinel II" },
+  { level: 3, renown: 5000, title: "Sentinel III" },
+  { level: 4, renown: 10000, title: "Signal Marshal I" },
+  { level: 5, renown: 18000, title: "Signal Marshal II" },
+  { level: 6, renown: 30000, title: "Signal Marshal III" },
+  { level: 7, renown: 45000, title: "High Warden I" },
+  { level: 8, renown: 65000, title: "High Warden II" },
+  { level: 9, renown: 90000, title: "High Warden III" },
+];
+
+export const LEADER_RANKS = [
+  { level: 1, renown: 0, title: "Architect I" },
+  { level: 2, renown: 10000, title: "Architect II" },
+  { level: 3, renown: 25000, title: "Architect III" },
+  { level: 4, renown: 50000, title: "Grand Architect I" },
+  { level: 5, renown: 80000, title: "Grand Architect II" },
+  { level: 6, renown: 120000, title: "Grand Architect III" },
+  { level: 7, renown: 0, title: "Founder" },
+];
+
+export function getRankForRole(role: string, renown: number) {
+  const ranks = role === "leader" ? LEADER_RANKS
+    : role === "elder" ? ELDER_RANKS
+    : MEMBER_RANKS;
+
+  let current = ranks[0];
+  let next: typeof ranks[number] | null = ranks[1] || null;
+  for (let i = ranks.length - 1; i >= 0; i--) {
+    if (renown >= ranks[i].renown) {
+      current = ranks[i];
+      next = ranks[i + 1] || null;
+      break;
+    }
+  }
+  const progress = next
+    ? ((renown - current.renown) / (next.renown - current.renown)) * 100
+    : 100;
+  return { rank: current.title, level: current.level, renown, nextRenown: next?.renown ?? null, progress };
+}
 
 export function getLevelInfo(xp: number) {
   let current = LEVEL_THRESHOLDS[0];

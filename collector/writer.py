@@ -240,3 +240,10 @@ class SupabaseWriter:
 
             self.client.table("nodes").update(updates).eq("id", node_id).execute()
             print(f"[stats] {node_id}: {updates['packets_total']} total, {updates['packets_24h']} 24h, uptime {uptime_pct}%")
+
+        # Recompute player renown from owned nodes
+        try:
+            self.client.rpc("recompute_player_renown").execute()
+            print("[stats] player renown recomputed")
+        except Exception as e:
+            print(f"[stats] renown recompute failed: {e}")

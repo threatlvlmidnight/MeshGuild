@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getSupabase, Node, Achievement, Card, RARITY_COLORS, RARITY_BG, ACHIEVEMENT_LABELS } from "@/lib/supabase";
+import { getSupabase, Node, Achievement, Card, Profile, NodeOwnership, RARITY_COLORS, RARITY_BG, ACHIEVEMENT_LABELS } from "@/lib/supabase";
 import { LevelBadge, XpProgressBar } from "@/components/level-badge";
 import { formatDistanceToNow, format } from "date-fns";
 import {
@@ -90,7 +90,11 @@ export default function NodeDetail() {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isOfficer, setIsOfficer] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [ownership, setOwnership] = useState<NodeOwnership | null>(null);
+  const [ownerCallsign, setOwnerCallsign] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
 
@@ -100,21 +104,19 @@ export default function NodeDetail() {
     async function loadAuth() {
       const { data: { user } } = await client.auth.getUser();
       if (user) {
-        const { data: profile, error } = await client
+        const { data: prof } = await client
           .from("profiles")
           .select("*")
           .eq("id", user.id)
           .single();
-        if (error) {
-          console.error("Profile fetch error:", error);
-        }
-        setIsAdmin(profile?.role === "admin");
+        setProfile(prof);
+        setIsOfficer(prof?.role === "leader" || prof?.role === "elder");
       }
     }
     loadAuth();
 
     async function load() {
-      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }] = await Promise.all([
+      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }, { data: ownerData }] = await Promise.all([
         client.from("nodes").select("*").eq("id", nodeId).single(),
         client
           .from("telemetry")
@@ -132,11 +134,27 @@ export default function NodeDetail() {
           .select("*")
           .eq("node_id", nodeId)
           .order("earned_at", { ascending: false }),
+        client
+          .from("node_ownership")
+          .select("*")
+          .eq("node_id", nodeId)
+          .limit(1)
+          .maybeSingle(),
       ]);
       setNode(nodeData);
       setTelemetry(telemData ?? []);
       setAchievements(achData ?? []);
       setCards(cardData ?? []);
+      if (ownerData) {
+        setOwnership(ownerData);
+        // Fetch owner callsign
+        const { data: ownerProfile } = await client
+          .from("profiles")
+          .select("callsign")
+          .eq("id", ownerData.player_id)
+          .single();
+        setOwnerCallsign(ownerProfile?.callsign ?? null);
+      }
       setLoading(false);
     }
     load();
@@ -346,6 +364,64 @@ export default function NodeDetail() {
           </div>
         )}
 
+        {/* Node Ownership */}
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-8">
+          <h2 className="text-lg font-semibold mb-3">Operator</h2>
+          {ownership ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-amber-400 font-mono text-sm">{ownerCallsign ?? "Unknown"}</span>
+                <span className="text-gray-500 text-xs ml-3">
+                  claimed {formatDistanceToNow(new Date(ownership.claimed_at), { addSuffix: true })}
+                </span>
+              </div>
+              {profile && ownership.player_id === profile.id && (
+                <button
+                  onClick={async () => {
+                    const client = getSupabase();
+                    await client.from("node_ownership").delete().eq("id", ownership.id);
+                    if (profile.primary_node_id === nodeId) {
+                      await client.from("profiles").update({ primary_node_id: null }).eq("id", profile.id);
+                    }
+                    setOwnership(null);
+                    setOwnerCallsign(null);
+                  }}
+                  className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Release
+                </button>
+              )}
+            </div>
+          ) : profile ? (
+            <button
+              onClick={async () => {
+                setClaiming(true);
+                const client = getSupabase();
+                const { data, error } = await client
+                  .from("node_ownership")
+                  .insert({ player_id: profile.id, node_id: nodeId })
+                  .select()
+                  .single();
+                if (!error && data) {
+                  setOwnership(data);
+                  setOwnerCallsign(profile.callsign);
+                  // Set as primary if user has none
+                  if (!profile.primary_node_id) {
+                    await client.from("profiles").update({ primary_node_id: nodeId }).eq("id", profile.id);
+                  }
+                }
+                setClaiming(false);
+              }}
+              disabled={claiming}
+              className="text-sm bg-amber-900 hover:bg-amber-800 text-amber-300 px-4 py-2 rounded transition-colors disabled:opacity-50"
+            >
+              {claiming ? "Claiming..." : "Claim This Node"}
+            </button>
+          ) : (
+            <div className="text-gray-500 text-sm">Sign in to claim this node</div>
+          )}
+        </div>
+
         {/* XP & Level */}
         <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-8">
           <div className="flex items-center justify-between mb-3">
@@ -454,8 +530,8 @@ export default function NodeDetail() {
           </code>
         </div>
 
-        {/* Stop Tracking — admin only */}
-        {isAdmin && (
+        {/* Stop Tracking — officer only */}
+        {isOfficer && (
           <div className="bg-gray-800 border border-red-900 rounded-lg p-4 mb-8">
             <div className="text-gray-300 text-sm mb-2">Stop Tracking</div>
             <p className="text-gray-500 text-xs mb-3">
@@ -480,6 +556,7 @@ export default function NodeDetail() {
                     await client.from("xp_events").delete().eq("node_id", nodeId);
                     await client.from("achievements").delete().eq("node_id", nodeId);
                     await client.from("cards").delete().eq("node_id", nodeId);
+                    await client.from("node_ownership").delete().eq("node_id", nodeId);
                     await client.from("nodes").delete().eq("id", nodeId);
                     router.push("/");
                   }}

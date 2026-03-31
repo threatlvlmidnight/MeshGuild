@@ -72,17 +72,31 @@ export default function AuthNav() {
     );
   }
 
+  const isOfficer = profile?.role === "leader" || profile?.role === "elder";
+
   return (
     <div className="flex items-center gap-3">
-      {profile?.role === "admin" && (
+      {isOfficer && (
         <Link
           href="/admin"
           className="text-xs bg-purple-900 text-purple-300 px-2 py-0.5 rounded-full hover:bg-purple-800 transition-colors"
         >
-          Admin
+          Guild
         </Link>
       )}
-      <span className="text-sm text-gray-400">{user.email}</span>
+      {profile?.rank_title && (
+        <span className="text-xs text-amber-400/80">{profile.rank_title}</span>
+      )}
+      {profile?.callsign ? (
+        <Link
+          href={`/profile/${encodeURIComponent(profile.callsign)}`}
+          className="text-sm text-gray-400 font-mono hover:text-gray-200 transition-colors"
+        >
+          {profile.callsign}
+        </Link>
+      ) : (
+        <span className="text-sm text-gray-400">{user.email}</span>
+      )}
       <button
         onClick={handleLogout}
         className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
