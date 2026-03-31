@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase, Node, Alert } from "@/lib/supabase";
+import { getSupabase, Node, Alert } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 
 // --- Color helpers ---
@@ -114,10 +114,12 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const client = getSupabase();
+
     async function load() {
       const [{ data: nodeData }, { data: alertData }] = await Promise.all([
-        supabase.from("nodes").select("*").order("long_name"),
-        supabase
+        client.from("nodes").select("*").order("long_name"),
+        client
           .from("alerts")
           .select("*")
           .eq("acknowledged", false)
@@ -129,36 +131,35 @@ export default function Home() {
     }
     load();
 
-    const nodeChannel = supabase
+    const nodeChannel = client
       .channel("nodes-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "nodes" },
         (payload) => {
+          const node = payload.new as unknown as Node;
           if (payload.eventType === "INSERT") {
             setNodes((prev) =>
-              [...prev, payload.new as Node].sort((a, b) =>
+              [...prev, node].sort((a, b) =>
                 (a.long_name ?? a.id).localeCompare(b.long_name ?? b.id)
               )
             );
           } else if (payload.eventType === "UPDATE") {
             setNodes((prev) =>
-              prev.map((n) =>
-                n.id === (payload.new as Node).id ? (payload.new as Node) : n
-              )
+              prev.map((n) => (n.id === node.id ? node : n))
             );
           }
         }
       )
       .subscribe();
 
-    const alertChannel = supabase
+    const alertChannel = client
       .channel("alerts-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "alerts" },
         async () => {
-          const { data } = await supabase
+          const { data } = await client
             .from("alerts")
             .select("*")
             .eq("acknowledged", false)
@@ -169,8 +170,8 @@ export default function Home() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(nodeChannel);
-      supabase.removeChannel(alertChannel);
+      client.removeChannel(nodeChannel);
+      client.removeChannel(alertChannel);
     };
   }, []);
 
