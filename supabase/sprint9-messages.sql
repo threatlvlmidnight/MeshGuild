@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS outbound_queue (
   content       TEXT NOT NULL,
   channel_index INT NOT NULL DEFAULT 0,
   to_node_id    TEXT,                              -- NULL = broadcast, hex id = DM
-  player_id     UUID NOT NULL REFERENCES players(id),
+  player_id     UUID NOT NULL REFERENCES profiles(id),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
