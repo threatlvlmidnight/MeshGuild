@@ -26,13 +26,12 @@ export async function middleware(request: NextRequest) {
   );
 
   // Refresh the auth session so it stays alive
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // Protect /admin route — redirect to /login if not authenticated
   if (request.nextUrl.pathname.startsWith("/admin")) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
