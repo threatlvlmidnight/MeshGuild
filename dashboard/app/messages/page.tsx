@@ -143,11 +143,23 @@ export default function MessagesPage() {
         channel_index: sendChannel,
         player_id: user.id,
       };
+
+      // Try with from_node_id first, fall back without if column doesn't exist yet
       if (selectedNode) {
         insertData.from_node_id = selectedNode;
       }
 
-      const { error } = await supabase.from("outbound_queue").insert(insertData);
+      let result = await supabase.from("outbound_queue").insert(insertData);
+
+      // If from_node_id column doesn't exist yet, retry without it
+      if (result.error && result.error.message.includes("from_node_id")) {
+        addLog("warn", "from_node_id column not found — sending without node selector (run migration)");
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { from_node_id: _unused, ...fallback } = insertData;
+        result = await supabase.from("outbound_queue").insert(fallback);
+      }
+
+      const { error } = result;
 
       if (error) {
         addLog("error", `Queue insert failed: ${error.message}`);
