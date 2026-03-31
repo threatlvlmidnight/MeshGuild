@@ -6,94 +6,118 @@ import { getSupabase, Node, Alert } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 import AuthNav from "@/components/auth-nav";
 import { LevelBadge } from "@/components/level-badge";
+import { Broadcast, Warning, WifiHigh, WifiSlash } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 
 // --- Color helpers ---
 
 function rssiColor(rssi: number | null): string {
-  if (rssi === null) return "text-gray-400";
-  if (rssi > -100) return "text-green-400";
-  if (rssi >= -110) return "text-yellow-400";
-  return "text-red-400";
+  if (rssi === null) return "text-terminal-muted";
+  if (rssi > -100) return "text-terminal-green";
+  if (rssi >= -110) return "text-terminal-amber";
+  return "text-terminal-red";
 }
 
 function snrColor(snr: number | null): string {
-  if (snr === null) return "text-gray-400";
-  if (snr > -10) return "text-green-400";
-  if (snr >= -15) return "text-yellow-400";
-  return "text-red-400";
+  if (snr === null) return "text-terminal-muted";
+  if (snr > -10) return "text-terminal-green";
+  if (snr >= -15) return "text-terminal-amber";
+  return "text-terminal-red";
 }
 
 function batteryColor(level: number | null): string {
-  if (level === null) return "text-gray-400";
-  if (level > 50) return "text-green-400";
-  if (level >= 20) return "text-yellow-400";
-  return "text-red-400";
+  if (level === null) return "text-terminal-muted";
+  if (level > 50) return "text-terminal-green";
+  if (level >= 20) return "text-terminal-amber";
+  return "text-terminal-red";
 }
 
 // --- Node card ---
 
-function NodeCard({ node }: { node: Node }) {
+function NodeCard({ node, index }: { node: Node; index: number }) {
   const lastSeen = node.last_seen
     ? formatDistanceToNow(new Date(node.last_seen), { addSuffix: true })
     : "never";
 
   return (
-    <Link href={`/node/${encodeURIComponent(node.id)}`} className="block">
-      <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col gap-3 hover:border-gray-500 transition-colors">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-white font-semibold text-sm">
-              {node.long_name ?? node.id}
-            </div>
-            {node.short_name && (
-              <div className="text-gray-400 text-xs">{node.short_name}</div>
-            )}
-          </div>
-          <span
-            className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-              node.is_online
-                ? "bg-green-900 text-green-300"
-                : "bg-red-900 text-red-300"
-            }`}
-          >
-            {node.is_online ? "Online" : "Offline"}
-          </span>
-        </div>
-
-        <div className="text-gray-400 text-xs">Last seen {lastSeen}</div>
-
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div>
-            <div className="text-gray-500 uppercase tracking-wide mb-0.5">RSSI</div>
-            <div className={`font-mono font-semibold ${rssiColor(node.rssi)}`}>
-              {node.rssi !== null ? `${node.rssi} dBm` : "—"}
-            </div>
-          </div>
-          <div>
-            <div className="text-gray-500 uppercase tracking-wide mb-0.5">SNR</div>
-            <div className={`font-mono font-semibold ${snrColor(node.snr)}`}>
-              {node.snr !== null ? `${node.snr} dB` : "—"}
-            </div>
-          </div>
-          {node.battery_level !== null && (
-            <div>
-              <div className="text-gray-500 uppercase tracking-wide mb-0.5">BAT</div>
-              <div className={`font-mono font-semibold ${batteryColor(node.battery_level)}`}>
-                {node.battery_level}%
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05, duration: 0.3 }}
+    >
+      <Link href={`/node/${encodeURIComponent(node.id)}`} className="block group">
+        <div className="panel p-4 flex flex-col gap-3 hover:border-terminal-green/30 transition-colors">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {node.is_online ? (
+                <WifiHigh size={16} weight="bold" className="text-terminal-green" />
+              ) : (
+                <WifiSlash size={16} weight="bold" className="text-terminal-red" />
+              )}
+              <div>
+                <div className="text-foreground font-mono font-semibold text-sm group-hover:text-terminal-green transition-colors">
+                  {node.long_name ?? node.id}
+                </div>
+                {node.short_name && (
+                  <div className="text-terminal-muted text-xs font-mono">{node.short_name}</div>
+                )}
               </div>
             </div>
-          )}
-        </div>
+            <span
+              className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                node.is_online
+                  ? "border-terminal-green/30 text-terminal-green bg-terminal-green/5"
+                  : "border-terminal-red/30 text-terminal-red bg-terminal-red/5"
+              }`}
+            >
+              {node.is_online ? "ONLINE" : "DARK"}
+            </span>
+          </div>
 
-        {/* Level badge */}
-        <div className="flex items-center justify-between">
-          <LevelBadge xp={node.xp_total ?? 0} />
-          <span className="text-gray-500 text-xs font-mono">
-            {(node.xp_total ?? 0).toLocaleString()} XP
-          </span>
+          <div className="text-terminal-muted text-xs font-mono">
+            Last signal {lastSeen}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-xs border-t border-terminal-border pt-3">
+            <div>
+              <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">RSSI</div>
+              <div className={`font-mono font-bold ${rssiColor(node.rssi)}`}>
+                {node.rssi !== null ? `${node.rssi}` : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">SNR</div>
+              <div className={`font-mono font-bold ${snrColor(node.snr)}`}>
+                {node.snr !== null ? `${node.snr}` : "—"}
+              </div>
+            </div>
+            {node.battery_level !== null ? (
+              <div>
+                <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">BAT</div>
+                <div className={`font-mono font-bold ${batteryColor(node.battery_level)}`}>
+                  {node.battery_level}%
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">UP</div>
+                <div className="font-mono font-bold text-terminal-muted">
+                  {node.uptime_pct !== null ? `${node.uptime_pct}%` : "—"}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Level badge */}
+          <div className="flex items-center justify-between border-t border-terminal-border pt-2">
+            <LevelBadge xp={node.xp_total ?? 0} />
+            <span className="text-terminal-muted text-xs font-mono">
+              {(node.xp_total ?? 0).toLocaleString()} RN
+            </span>
+          </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </motion.div>
   );
 }
 
@@ -104,22 +128,23 @@ function AlertsBanner({ alerts }: { alerts: Alert[] }) {
 
   return (
     <Link href="/alerts" className="block">
-      <div className="bg-yellow-900 border border-yellow-700 rounded-lg p-4 mb-6 hover:border-yellow-500 transition-colors">
+      <div className="border border-terminal-amber/30 bg-terminal-amber/5 rounded-lg p-4 mb-6 hover:border-terminal-amber/50 transition-colors">
         <div className="flex items-center justify-between mb-2">
-          <div className="text-yellow-300 font-semibold text-sm">
-            {alerts.length} Active Alert{alerts.length > 1 ? "s" : ""}
+          <div className="flex items-center gap-2 text-terminal-amber font-mono font-bold text-sm">
+            <Warning size={16} weight="bold" />
+            {alerts.length} ACTIVE ALERT{alerts.length > 1 ? "S" : ""}
           </div>
-          <span className="text-yellow-400 text-xs">View all &rarr;</span>
+          <span className="text-terminal-amber/70 text-xs font-mono">VIEW ALL →</span>
         </div>
         <ul className="space-y-1">
           {alerts.slice(0, 3).map((alert) => (
-            <li key={alert.id} className="text-yellow-200 text-xs">
-              <span className="font-mono text-yellow-400">[{alert.alert_type}]</span>{" "}
+            <li key={alert.id} className="text-terminal-amber/80 text-xs font-mono">
+              <span className="text-terminal-amber">[{alert.alert_type}]</span>{" "}
               {alert.message}
             </li>
           ))}
           {alerts.length > 3 && (
-            <li className="text-yellow-400 text-xs">+{alerts.length - 3} more</li>
+            <li className="text-terminal-amber/60 text-xs font-mono">+{alerts.length - 3} more</li>
           )}
         </ul>
       </div>
@@ -196,20 +221,28 @@ export default function Home() {
     };
   }, []);
 
+  const onlineCount = nodes.filter((n) => n.is_online).length;
+
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-6">
+    <main className="min-h-screen p-4 sm:p-6">
       <div className="max-w-5xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-white">MeshGuild</h1>
-            <p className="text-gray-400 text-sm mt-1">OKC Crew — Node Health</p>
+            <h1 className="text-xl sm:text-2xl font-bold font-mono text-terminal-green glow-green tracking-tight">
+              THE SIGNAL ORDER
+            </h1>
+            <p className="text-terminal-muted text-xs font-mono mt-1">
+              <Broadcast size={12} weight="bold" className="inline mr-1" />
+              MESH NETWORK OPERATIONS — {nodes.length} NODES TRACKED
+            </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Link
               href="/leaderboard"
-              className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+              className="text-xs font-mono text-terminal-dim hover:text-terminal-green transition-colors hidden sm:inline"
             >
-              Leaderboard
+              [ REGISTRY ]
             </Link>
             <AuthNav />
           </div>
@@ -217,20 +250,20 @@ export default function Home() {
 
         {/* Guild Health Score */}
         {nodes.length > 0 && (() => {
-          const onlineCount = nodes.filter((n) => n.is_online).length;
           const score = Math.round((onlineCount / nodes.length) * 100);
           let rank: string;
-          let color: string;
-          if (score >= 90) { rank = "Battle Ready"; color = "text-green-400 border-green-700 bg-green-900/30"; }
-          else if (score >= 70) { rank = "Operational"; color = "text-blue-400 border-blue-700 bg-blue-900/30"; }
-          else if (score >= 50) { rank = "Degraded"; color = "text-yellow-400 border-yellow-700 bg-yellow-900/30"; }
-          else { rank = "Critical"; color = "text-red-400 border-red-700 bg-red-900/30"; }
+          let colorClass: string;
+          if (score >= 90) { rank = "BATTLE READY"; colorClass = "text-terminal-green border-terminal-green/30 bg-terminal-green/5"; }
+          else if (score >= 70) { rank = "OPERATIONAL"; colorClass = "text-terminal-dim border-terminal-dim/30 bg-terminal-dim/5"; }
+          else if (score >= 50) { rank = "DEGRADED"; colorClass = "text-terminal-amber border-terminal-amber/30 bg-terminal-amber/5"; }
+          else { rank = "CRITICAL"; colorClass = "text-terminal-red border-terminal-red/30 bg-terminal-red/5"; }
           return (
-            <div className={`border rounded-lg p-3 mb-6 flex items-center justify-between ${color}`}>
-              <div className="text-xs uppercase tracking-wide opacity-75">Guild Health</div>
+            <div className={`border rounded-lg p-3 mb-6 flex items-center justify-between font-mono ${colorClass}`}>
+              <div className="text-[10px] uppercase tracking-widest opacity-75">ORDER STATUS</div>
               <div className="flex items-center gap-3">
                 <span className="text-lg font-bold">{score}%</span>
-                <span className="text-sm font-semibold">{rank}</span>
+                <span className="text-xs font-bold tracking-wider">{rank}</span>
+                <span className="text-xs opacity-60">{onlineCount}/{nodes.length}</span>
               </div>
             </div>
           );
@@ -239,15 +272,17 @@ export default function Home() {
         <AlertsBanner alerts={alerts} />
 
         {loading ? (
-          <div className="text-gray-400 text-sm">Loading nodes...</div>
+          <div className="text-terminal-muted text-sm font-mono animate-pulse-glow">
+            Scanning frequencies...
+          </div>
         ) : nodes.length === 0 ? (
-          <div className="text-gray-400 text-sm">
-            No nodes yet — waiting for radio data.
+          <div className="text-terminal-muted text-sm font-mono">
+            No signal detected — awaiting radio transmission.
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {nodes.map((node) => (
-              <NodeCard key={node.id} node={node} />
+            {nodes.map((node, i) => (
+              <NodeCard key={node.id} node={node} index={i} />
             ))}
           </div>
         )}

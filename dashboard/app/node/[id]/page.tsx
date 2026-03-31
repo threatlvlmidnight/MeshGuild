@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getSupabase, Node, Achievement, Card, Profile, NodeOwnership, RARITY_COLORS, RARITY_BG, ACHIEVEMENT_LABELS } from "@/lib/supabase";
+import { getSupabase, Node, Achievement, Card, Profile, NodeOwnership, RARITY_COLORS, ACHIEVEMENT_LABELS } from "@/lib/supabase";
 import { LevelBadge, XpProgressBar } from "@/components/level-badge";
 import { formatDistanceToNow, format } from "date-fns";
+import { ArrowLeft, WifiHigh, WifiSlash, UserCircle, Trophy, Cards, ChartLine, Terminal, Trash } from "@phosphor-icons/react";
 import {
   LineChart,
   Line,
@@ -41,28 +42,30 @@ function SignalChart({
   );
   if (filtered.length === 0) {
     return (
-      <div className="text-gray-500 text-sm">No {label.toLowerCase()} data</div>
+      <div className="text-terminal-muted text-sm font-mono">No {label.toLowerCase()} data</div>
     );
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-      <h3 className="text-gray-300 text-sm font-semibold mb-3">{label}</h3>
+    <div className="panel p-4">
+      <h3 className="text-terminal-dim text-xs font-mono font-bold uppercase tracking-widest mb-3">{label}</h3>
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={filtered}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#2a2f3a" />
           <XAxis
             dataKey="timestamp"
             tickFormatter={(t) => format(new Date(t), "HH:mm")}
-            stroke="#6b7280"
-            tick={{ fontSize: 11 }}
+            stroke="#4a5568"
+            tick={{ fontSize: 11, fontFamily: "var(--font-geist-mono)" }}
           />
-          <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} unit={unit} />
+          <YAxis stroke="#4a5568" tick={{ fontSize: 11, fontFamily: "var(--font-geist-mono)" }} unit={unit} />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#1f2937",
-              border: "1px solid #374151",
+              backgroundColor: "#181b22",
+              border: "1px solid #2a2f3a",
               borderRadius: "6px",
+              fontFamily: "var(--font-geist-mono)",
+              fontSize: "12px",
             }}
             labelFormatter={(t) => format(new Date(t as string), "MMM d, HH:mm")}
             formatter={(value) => [`${value}${unit}`, label]}
@@ -183,19 +186,19 @@ export default function NodeDetail() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-900 text-white p-6">
-        <div className="max-w-4xl mx-auto text-gray-400 text-sm">Loading...</div>
+      <main className="min-h-screen p-6">
+        <div className="max-w-4xl mx-auto text-terminal-muted text-sm font-mono animate-pulse-glow">Accessing node data...</div>
       </main>
     );
   }
 
   if (!node) {
     return (
-      <main className="min-h-screen bg-gray-900 text-white p-6">
+      <main className="min-h-screen p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="text-gray-400 text-sm">Node not found</div>
-          <Link href="/" className="text-blue-400 text-sm mt-2 inline-block">
-            Back to dashboard
+          <div className="text-terminal-muted text-sm font-mono">Node not found — signal lost</div>
+          <Link href="/" className="text-terminal-green text-sm mt-2 inline-block font-mono">
+            ← Return to operations
           </Link>
         </div>
       </main>
@@ -207,151 +210,162 @@ export default function NodeDetail() {
     : "never";
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-6">
+    <main className="min-h-screen p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         {/* Back link */}
         <Link
           href="/"
-          className="text-gray-400 hover:text-gray-200 text-sm mb-6 inline-block"
+          className="text-terminal-muted hover:text-terminal-green text-xs mb-6 inline-flex items-center gap-1 font-mono transition-colors"
         >
-          &larr; Back to dashboard
+          <ArrowLeft size={12} weight="bold" />
+          OPERATIONS
         </Link>
 
         {/* Node header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {node.long_name ?? node.id}
-            </h1>
-            {node.short_name && (
-              <span className="text-gray-400 text-sm">{node.short_name}</span>
+          <div className="flex items-center gap-3">
+            {node.is_online ? (
+              <WifiHigh size={24} weight="bold" className="text-terminal-green" />
+            ) : (
+              <WifiSlash size={24} weight="bold" className="text-terminal-red" />
             )}
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold font-mono text-foreground">
+                {node.long_name ?? node.id}
+              </h1>
+              {node.short_name && (
+                <span className="text-terminal-muted text-xs font-mono">{node.short_name}</span>
+              )}
+            </div>
           </div>
           <span
-            className={`text-sm font-medium px-3 py-1 rounded-full ${
+            className={`text-xs font-mono font-bold uppercase tracking-wider px-3 py-1 rounded border ${
               node.is_online
-                ? "bg-green-900 text-green-300"
-                : "bg-red-900 text-red-300"
+                ? "border-terminal-green/30 text-terminal-green bg-terminal-green/5"
+                : "border-terminal-red/30 text-terminal-red bg-terminal-red/5"
             }`}
           >
-            {node.is_online ? "Online" : "Offline"}
+            {node.is_online ? "ONLINE" : "GOING DARK"}
           </span>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Last Seen</div>
-            <div className="text-white text-sm font-mono mt-1">{lastSeen}</div>
+        {/* Live stats row */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Last Signal</div>
+            <div className="text-foreground text-sm font-mono mt-1">{lastSeen}</div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">RSSI</div>
-            <div className="text-white text-sm font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">RSSI</div>
+            <div className="text-foreground text-sm font-mono mt-1">
               {node.rssi !== null ? `${node.rssi} dBm` : "—"}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">SNR</div>
-            <div className="text-white text-sm font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">SNR</div>
+            <div className="text-foreground text-sm font-mono mt-1">
               {node.snr !== null ? `${node.snr} dB` : "—"}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Battery</div>
-            <div className="text-white text-sm font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Battery</div>
+            <div className="text-foreground text-sm font-mono mt-1">
               {node.battery_level !== null ? `${node.battery_level}%` : "—"}
             </div>
           </div>
         </div>
 
         {/* Lifetime Stats */}
-        <h2 className="text-lg font-semibold mb-4">Node Stats</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Total Packets</div>
-            <div className="text-white text-lg font-bold font-mono mt-1">
+        <h2 className="text-sm font-mono font-bold text-terminal-green uppercase tracking-widest mb-3 flex items-center gap-2">
+          <ChartLine size={14} weight="bold" />
+          NODE STATISTICS
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Total Packets</div>
+            <div className="text-foreground text-lg font-bold font-mono mt-1">
               {(node.packets_total ?? 0).toLocaleString()}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Last 24h</div>
-            <div className="text-white text-lg font-bold font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Last 24h</div>
+            <div className="text-foreground text-lg font-bold font-mono mt-1">
               {(node.packets_24h ?? 0).toLocaleString()}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Last 7 Days</div>
-            <div className="text-white text-lg font-bold font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Last 7 Days</div>
+            <div className="text-foreground text-lg font-bold font-mono mt-1">
               {(node.packets_7d ?? 0).toLocaleString()}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Uptime</div>
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Uptime</div>
             <div className={`text-lg font-bold font-mono mt-1 ${
               node.uptime_pct !== null
-                ? node.uptime_pct >= 90 ? "text-green-400"
-                : node.uptime_pct >= 70 ? "text-yellow-400"
-                : "text-red-400"
-                : "text-gray-400"
+                ? node.uptime_pct >= 90 ? "text-terminal-green"
+                : node.uptime_pct >= 70 ? "text-terminal-amber"
+                : "text-terminal-red"
+                : "text-terminal-muted"
             }`}>
               {node.uptime_pct !== null ? `${node.uptime_pct}%` : "—"}
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Avg RSSI</div>
-            <div className="text-white text-sm font-mono mt-1">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Avg RSSI</div>
+            <div className="text-foreground text-sm font-mono mt-1">
               {node.avg_rssi !== null ? `${node.avg_rssi} dBm` : "—"}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Best RSSI</div>
-            <div className="text-green-400 text-sm font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Best RSSI</div>
+            <div className="text-terminal-green text-sm font-mono mt-1">
               {node.best_rssi !== null ? `${node.best_rssi} dBm` : "—"}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Avg SNR</div>
-            <div className="text-white text-sm font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Avg SNR</div>
+            <div className="text-foreground text-sm font-mono mt-1">
               {node.avg_snr !== null ? `${node.avg_snr} dB` : "—"}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Best SNR</div>
-            <div className="text-green-400 text-sm font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Best SNR</div>
+            <div className="text-terminal-green text-sm font-mono mt-1">
               {node.best_snr !== null ? `${node.best_snr} dB` : "—"}
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Battery Low</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Battery Low</div>
             <div className={`text-sm font-mono mt-1 ${
               node.battery_min !== null
-                ? node.battery_min >= 50 ? "text-green-400"
-                : node.battery_min >= 20 ? "text-yellow-400"
-                : "text-red-400"
-                : "text-gray-400"
+                ? node.battery_min >= 50 ? "text-terminal-green"
+                : node.battery_min >= 20 ? "text-terminal-amber"
+                : "text-terminal-red"
+                : "text-terminal-muted"
             }`}>
               {node.battery_min !== null ? `${node.battery_min}%` : "—"}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Offline Events</div>
-            <div className="text-white text-sm font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Dark Events</div>
+            <div className="text-foreground text-sm font-mono mt-1">
               {node.offline_count ?? 0}
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Current Streak</div>
-            <div className="text-white text-sm font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Current Streak</div>
+            <div className="text-foreground text-sm font-mono mt-1">
               {node.current_streak_days ?? 0}d
             </div>
           </div>
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-            <div className="text-gray-500 text-xs uppercase">Best Streak</div>
-            <div className="text-yellow-400 text-sm font-mono mt-1">
+          <div className="panel p-3">
+            <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Best Streak</div>
+            <div className="text-terminal-gold text-sm font-mono mt-1">
               {node.longest_streak_days ?? 0}d
             </div>
           </div>
@@ -359,19 +373,22 @@ export default function NodeDetail() {
 
         {/* First seen */}
         {node.created_at && (
-          <div className="text-gray-500 text-xs mb-8">
-            First seen {formatDistanceToNow(new Date(node.created_at), { addSuffix: true })} &mdash; {format(new Date(node.created_at), "MMM d, yyyy")}
+          <div className="text-terminal-muted text-xs font-mono mb-8">
+            First signal {formatDistanceToNow(new Date(node.created_at), { addSuffix: true })} — {format(new Date(node.created_at), "MMM d, yyyy")}
           </div>
         )}
 
         {/* Node Ownership */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-8">
-          <h2 className="text-lg font-semibold mb-3">Operator</h2>
+        <div className="panel p-4 mb-8">
+          <h2 className="text-sm font-mono font-bold text-terminal-gold uppercase tracking-widest mb-3 flex items-center gap-2">
+            <UserCircle size={14} weight="bold" />
+            OPERATOR
+          </h2>
           {ownership ? (
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-amber-400 font-mono text-sm">{ownerCallsign ?? "Unknown"}</span>
-                <span className="text-gray-500 text-xs ml-3">
+                <span className="text-terminal-gold font-mono text-sm glow-gold">{ownerCallsign ?? "Unknown"}</span>
+                <span className="text-terminal-muted text-xs font-mono ml-3">
                   claimed {formatDistanceToNow(new Date(ownership.claimed_at), { addSuffix: true })}
                 </span>
               </div>
@@ -386,9 +403,9 @@ export default function NodeDetail() {
                     setOwnership(null);
                     setOwnerCallsign(null);
                   }}
-                  className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                  className="text-xs text-terminal-red hover:text-terminal-red/80 transition-colors font-mono"
                 >
-                  Release
+                  [ RELEASE ]
                 </button>
               )}
             </div>
@@ -405,7 +422,6 @@ export default function NodeDetail() {
                 if (!error && data) {
                   setOwnership(data);
                   setOwnerCallsign(profile.callsign);
-                  // Set as primary if user has none
                   if (!profile.primary_node_id) {
                     await client.from("profiles").update({ primary_node_id: nodeId }).eq("id", profile.id);
                   }
@@ -413,28 +429,31 @@ export default function NodeDetail() {
                 setClaiming(false);
               }}
               disabled={claiming}
-              className="text-sm bg-amber-900 hover:bg-amber-800 text-amber-300 px-4 py-2 rounded transition-colors disabled:opacity-50"
+              className="text-sm font-mono border border-terminal-gold/30 bg-terminal-gold/10 text-terminal-gold hover:bg-terminal-gold/20 px-4 py-2 rounded transition-colors disabled:opacity-50"
             >
-              {claiming ? "Claiming..." : "Claim This Node"}
+              {claiming ? "CLAIMING..." : "CLAIM THIS NODE"}
             </button>
           ) : (
-            <div className="text-gray-500 text-sm">Sign in to claim this node</div>
+            <div className="text-terminal-muted text-sm font-mono">Sign in to claim this node</div>
           )}
         </div>
 
         {/* XP & Level */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-8">
+        <div className="panel p-4 mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Progression</h2>
+            <h2 className="text-sm font-mono font-bold text-terminal-green uppercase tracking-widest">PROGRESSION</h2>
             <LevelBadge xp={node.xp_total ?? 0} size="md" />
           </div>
           <XpProgressBar xp={node.xp_total ?? 0} />
         </div>
 
-        {/* Achievements */}
-        <h2 className="text-lg font-semibold mb-4">Achievements</h2>
+        {/* Commendations (Achievements) */}
+        <h2 className="text-sm font-mono font-bold text-terminal-green uppercase tracking-widest mb-3 flex items-center gap-2">
+          <Trophy size={14} weight="bold" />
+          COMMENDATIONS
+        </h2>
         {achievements.length === 0 ? (
-          <div className="text-gray-500 text-sm mb-8">No achievements earned yet.</div>
+          <div className="text-terminal-muted text-sm font-mono mb-8">No commendations earned yet.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
             {achievements.map((ach) => {
@@ -445,13 +464,13 @@ export default function NodeDetail() {
               return (
                 <div
                   key={ach.id}
-                  className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-center"
+                  className="panel p-3 text-center"
                 >
                   <div className="text-2xl mb-1">{label.emoji}</div>
-                  <div className="text-white text-sm font-semibold">
+                  <div className="text-foreground text-xs font-mono font-bold">
                     {label.name}
                   </div>
-                  <div className="text-gray-500 text-xs mt-1">
+                  <div className="text-terminal-muted text-[10px] font-mono mt-1">
                     {new Date(ach.earned_at).toLocaleDateString()}
                   </div>
                 </div>
@@ -460,31 +479,32 @@ export default function NodeDetail() {
           </div>
         )}
 
-        {/* Card Collection */}
-        <h2 className="text-lg font-semibold mb-4">Card Collection</h2>
+        {/* Relics (Card Collection) */}
+        <h2 className="text-sm font-mono font-bold text-terminal-green uppercase tracking-widest mb-3 flex items-center gap-2">
+          <Cards size={14} weight="bold" />
+          RELICS
+        </h2>
         {cards.length === 0 ? (
-          <div className="text-gray-500 text-sm mb-8">No cards collected yet.</div>
+          <div className="text-terminal-muted text-sm font-mono mb-8">No relics collected yet.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
             {cards.map((card) => (
               <div
                 key={card.id}
-                className={`border border-gray-700 rounded-lg p-3 ${
-                  RARITY_BG[card.rarity] || "bg-gray-800"
-                }`}
+                className="panel p-3 border-terminal-border"
               >
                 <div
-                  className={`text-sm font-semibold ${
-                    RARITY_COLORS[card.rarity] || "text-gray-300"
+                  className={`text-sm font-mono font-bold ${
+                    RARITY_COLORS[card.rarity] || "text-terminal-muted"
                   }`}
                 >
                   {card.card_name}
                 </div>
-                <div className="text-gray-400 text-xs mt-1">{card.rarity}</div>
-                <div className="text-gray-500 text-xs mt-1">
+                <div className="text-terminal-gold text-[10px] font-mono uppercase mt-1">{card.rarity}</div>
+                <div className="text-terminal-muted text-[10px] font-mono mt-1">
                   {card.trigger_event}
                 </div>
-                <div className="text-gray-600 text-xs mt-1">
+                <div className="text-terminal-muted/50 text-[10px] font-mono mt-1">
                   {new Date(card.earned_at).toLocaleDateString()}
                 </div>
               </div>
@@ -493,57 +513,65 @@ export default function NodeDetail() {
         )}
 
         {/* Signal history charts */}
-        <h2 className="text-lg font-semibold mb-4">Signal History</h2>
+        <h2 className="text-sm font-mono font-bold text-terminal-green uppercase tracking-widest mb-3 flex items-center gap-2">
+          <ChartLine size={14} weight="bold" />
+          SIGNAL HISTORY
+        </h2>
         <div className="grid grid-cols-1 gap-4 mb-8">
           <SignalChart
             data={telemetry}
             dataKey="rssi"
             label="RSSI"
-            color="#22d3ee"
+            color="#00ff88"
             unit=" dBm"
           />
           <SignalChart
             data={telemetry}
             dataKey="snr"
             label="SNR"
-            color="#a78bfa"
+            color="#d4a746"
             unit=" dB"
           />
           <SignalChart
             data={telemetry}
             dataKey="battery_level"
             label="Battery"
-            color="#4ade80"
+            color="#f0b429"
             unit="%"
           />
         </div>
 
         {/* Admin actions */}
-        <h2 className="text-lg font-semibold mb-4">Admin</h2>
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-8">
-          <div className="text-gray-300 text-sm mb-2">Remote Reboot</div>
-          <p className="text-gray-500 text-xs mb-3">
+        <h2 className="text-sm font-mono font-bold text-terminal-muted uppercase tracking-widest mb-3 flex items-center gap-2">
+          <Terminal size={14} weight="bold" />
+          ADMIN
+        </h2>
+        <div className="panel p-4 mb-8">
+          <div className="text-foreground text-sm font-mono mb-2">Remote Reboot</div>
+          <p className="text-terminal-muted text-xs font-mono mb-3">
             Sends a reboot command over LoRa mesh. Run from the host machine:
           </p>
-          <code className="block bg-gray-900 text-green-400 text-xs p-3 rounded font-mono">
+          <code className="block bg-terminal-bg text-terminal-green text-xs p-3 rounded font-mono border border-terminal-border">
             python3 -m bots.reboot {node.id}
           </code>
         </div>
 
         {/* Stop Tracking — officer only */}
         {isOfficer && (
-          <div className="bg-gray-800 border border-red-900 rounded-lg p-4 mb-8">
-            <div className="text-gray-300 text-sm mb-2">Stop Tracking</div>
-            <p className="text-gray-500 text-xs mb-3">
-              Remove this node and all its telemetry and alerts from the dashboard.
-              This cannot be undone.
+          <div className="panel border-terminal-red/30 p-4 mb-8">
+            <div className="text-foreground text-sm font-mono mb-2 flex items-center gap-2">
+              <Trash size={14} weight="bold" className="text-terminal-red" />
+              Stop Tracking
+            </div>
+            <p className="text-terminal-muted text-xs font-mono mb-3">
+              Remove this node and all telemetry from the dashboard. This cannot be undone.
             </p>
             {!confirmRemove ? (
               <button
                 onClick={() => setConfirmRemove(true)}
-                className="text-xs bg-red-900 hover:bg-red-800 text-red-300 px-3 py-1.5 rounded transition-colors"
+                className="text-xs font-mono border border-terminal-red/30 bg-terminal-red/10 text-terminal-red hover:bg-terminal-red/20 px-3 py-1.5 rounded transition-colors"
               >
-                Stop Tracking This Node
+                STOP TRACKING THIS NODE
               </button>
             ) : (
               <div className="flex items-center gap-3">
@@ -561,15 +589,15 @@ export default function NodeDetail() {
                     router.push("/");
                   }}
                   disabled={removing}
-                  className="text-xs bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded transition-colors"
+                  className="text-xs font-mono bg-terminal-red/80 hover:bg-terminal-red text-white px-3 py-1.5 rounded transition-colors"
                 >
-                  {removing ? "Removing..." : "Confirm Remove"}
+                  {removing ? "REMOVING..." : "CONFIRM REMOVE"}
                 </button>
                 <button
                   onClick={() => setConfirmRemove(false)}
-                  className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                  className="text-xs font-mono text-terminal-muted hover:text-foreground transition-colors"
                 >
-                  Cancel
+                  CANCEL
                 </button>
               </div>
             )}
@@ -577,7 +605,7 @@ export default function NodeDetail() {
         )}
 
         {/* Node ID for reference */}
-        <div className="text-gray-600 text-xs font-mono">{node.id}</div>
+        <div className="text-terminal-border text-[10px] font-mono">{node.id}</div>
       </div>
     </main>
   );

@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabase, Profile } from "@/lib/supabase";
+import { ArrowLeft, Shield, CheckCircle, UserCircle } from "@phosphor-icons/react";
 
 type Role = "member" | "elder" | "leader";
 
 const ROLE_COLORS: Record<Role, string> = {
-  member: "bg-gray-700 text-gray-300",
-  elder: "bg-amber-900 text-amber-300",
-  leader: "bg-purple-900 text-purple-300",
+  member: "border-terminal-muted/50 text-terminal-muted bg-terminal-muted/10",
+  elder: "border-terminal-gold/40 text-terminal-gold bg-terminal-gold/10",
+  leader: "border-terminal-green/40 text-terminal-green bg-terminal-green/10",
 };
 
 export default function AdminPage() {
@@ -113,21 +114,21 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-900 text-white p-6">
-        <div className="max-w-4xl mx-auto text-gray-400 text-sm">Loading...</div>
+      <main className="min-h-screen p-6">
+        <div className="max-w-4xl mx-auto text-terminal-muted text-sm font-mono animate-pulse-glow">Accessing guild records...</div>
       </main>
     );
   }
 
   if (error) {
     return (
-      <main className="min-h-screen bg-gray-900 text-white p-6">
+      <main className="min-h-screen p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-red-900/50 border border-red-700 rounded-lg p-4 text-red-300 text-sm mb-4">
+          <div className="border border-terminal-red/30 bg-terminal-red/5 rounded-lg p-4 text-terminal-red text-sm font-mono mb-4">
             {error}
           </div>
-          <Link href="/" className="text-blue-400 text-sm hover:text-blue-300">
-            &larr; Back to dashboard
+          <Link href="/" className="text-terminal-green text-xs font-mono hover:text-terminal-green/80">
+            ← Return to operations
           </Link>
         </div>
       </main>
@@ -138,42 +139,47 @@ export default function AdminPage() {
   const approved = profiles.filter((p) => p.approved);
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-6">
+    <main className="min-h-screen p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         <Link
           href="/"
-          className="text-gray-400 hover:text-gray-200 text-sm mb-6 inline-block"
+          className="text-terminal-muted hover:text-terminal-green text-xs mb-6 inline-flex items-center gap-1 font-mono transition-colors"
         >
-          &larr; Back to dashboard
+          <ArrowLeft size={12} weight="bold" />
+          OPERATIONS
         </Link>
 
-        <h1 className="text-2xl font-bold mb-6">Guild Management</h1>
+        <h1 className="text-xl sm:text-2xl font-bold font-mono text-terminal-green glow-green mb-6 flex items-center gap-2">
+          <Shield size={20} weight="bold" />
+          GUILD MANAGEMENT
+        </h1>
 
         {/* Pending approval */}
         {pending.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-lg font-semibold text-amber-400 mb-4">
-              Pending Approval ({pending.length})
+            <h2 className="text-sm font-mono font-bold text-terminal-amber uppercase tracking-widest mb-3">
+              PENDING APPROVAL ({pending.length})
             </h2>
             <div className="space-y-2">
               {pending.map((profile) => (
                 <div
                   key={profile.id}
-                  className="bg-amber-950/30 border border-amber-800/50 rounded-lg p-4 flex items-center justify-between"
+                  className="border border-terminal-amber/30 bg-terminal-amber/5 rounded-lg p-4 flex items-center justify-between"
                 >
                   <div>
-                    <div className="text-white text-sm font-mono">
+                    <div className="text-foreground text-sm font-mono font-bold">
                       {profile.callsign ?? "No callsign"}
                     </div>
-                    <div className="text-gray-500 text-xs mt-0.5">
+                    <div className="text-terminal-muted text-xs font-mono mt-0.5">
                       {profile.email}
                     </div>
                   </div>
                   <button
                     onClick={() => toggleApproval(profile.id, false)}
-                    className="text-xs bg-green-900 hover:bg-green-800 text-green-300 px-3 py-1 rounded transition-colors"
+                    className="text-xs font-mono border border-terminal-green/30 bg-terminal-green/10 text-terminal-green hover:bg-terminal-green/20 px-3 py-1 rounded transition-colors flex items-center gap-1"
                   >
-                    Approve
+                    <CheckCircle size={12} weight="bold" />
+                    APPROVE
                   </button>
                 </div>
               ))}
@@ -183,25 +189,26 @@ export default function AdminPage() {
 
         {/* Members */}
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-200 mb-4">
-            Members ({approved.length})
+          <h2 className="text-sm font-mono font-bold text-terminal-dim uppercase tracking-widest mb-3">
+            OPERATORS ({approved.length})
           </h2>
           <div className="space-y-2">
             {approved.map((profile) => (
               <div
                 key={profile.id}
-                className="bg-gray-800 border border-gray-700 rounded-lg p-4 flex items-center justify-between"
+                className="panel p-4 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
+                  <UserCircle size={20} weight="bold" className="text-terminal-muted" />
                   <div>
-                    <div className="text-white text-sm font-mono">
+                    <div className="text-foreground text-sm font-mono font-bold">
                       {profile.callsign ?? "—"}
                     </div>
-                    <div className="text-gray-500 text-xs mt-0.5">
+                    <div className="text-terminal-muted text-xs font-mono mt-0.5">
                       {profile.email}
                     </div>
                     {profile.rank_title && (
-                      <div className="text-amber-400/70 text-xs mt-0.5">
+                      <div className="text-terminal-gold/70 text-[10px] font-mono mt-0.5">
                         {profile.rank_title}
                       </div>
                     )}
@@ -209,7 +216,7 @@ export default function AdminPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
                       ROLE_COLORS[profile.role as Role] ?? ROLE_COLORS.member
                     }`}
                   >
@@ -220,13 +227,13 @@ export default function AdminPage() {
                       <button
                         key={r}
                         onClick={() => setRole(profile.id, r)}
-                        className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded transition-colors"
+                        className="text-[10px] font-mono border border-terminal-border text-terminal-muted hover:text-foreground hover:border-terminal-green/30 px-2 py-1 rounded transition-colors"
                       >
                         → {r}
                       </button>
                     ))}
                   {profile.id === currentProfile?.id && (
-                    <span className="text-xs text-gray-600">(you)</span>
+                    <span className="text-[10px] text-terminal-muted font-mono">(you)</span>
                   )}
                 </div>
               </div>
@@ -235,13 +242,13 @@ export default function AdminPage() {
         </div>
 
         {/* Info */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-300 mb-2">Role Permissions</h3>
-          <ul className="text-xs text-gray-400 space-y-1">
-            <li>&bull; <span className="text-gray-300">Members</span> — view dashboard, earn renown, claim nodes</li>
-            <li>&bull; <span className="text-amber-300">Elders</span> — approve new members, promote members to elder</li>
-            <li>&bull; <span className="text-purple-300">Leaders</span> — full guild management, assign any role</li>
-            <li>&bull; You cannot change your own role.</li>
+        <div className="panel p-4">
+          <h3 className="text-xs font-mono font-bold text-terminal-dim uppercase tracking-widest mb-2">ROLE PERMISSIONS</h3>
+          <ul className="text-xs text-terminal-muted font-mono space-y-1">
+            <li>• <span className="text-foreground">Members</span> — view dashboard, earn renown, claim nodes</li>
+            <li>• <span className="text-terminal-gold">Elders</span> — approve new members, promote members to elder</li>
+            <li>• <span className="text-terminal-green">Leaders</span> — full guild management, assign any role</li>
+            <li>• You cannot change your own role.</li>
           </ul>
         </div>
       </div>

@@ -274,3 +274,35 @@ UPDATE profiles SET rank_title = 'Architect I', rank_level = 1
   WHERE role = 'leader' AND rank_title = 'Initiate I';
 UPDATE profiles SET rank_title = 'Sentinel I', rank_level = 1
   WHERE role = 'elder' AND rank_title = 'Initiate I';
+
+-- ============================================================
+-- 12. Auto-set rank when role changes (trigger)
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.on_role_change()
+RETURNS trigger AS $$
+DECLARE
+  new_rank RECORD;
+BEGIN
+  IF OLD.role IS DISTINCT FROM NEW.role THEN
+    -- Find the highest rank the player qualifies for in their new role
+    SELECT rt.rank_title, rt.rank_level INTO new_rank
+    FROM rank_thresholds rt
+    WHERE rt.role = NEW.role AND rt.renown_required <= NEW.renown
+    ORDER BY rt.renown_required DESC
+    LIMIT 1;
+
+    IF new_rank IS NOT NULL THEN
+      NEW.rank_title := new_rank.rank_title;
+      NEW.rank_level := new_rank.rank_level;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_role_change ON profiles;
+CREATE TRIGGER trg_role_change
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION on_role_change();

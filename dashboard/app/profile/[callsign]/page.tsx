@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getSupabase, Profile, Node, NodeOwnership, getRankForRole } from "@/lib/supabase";
 import { format } from "date-fns";
+import { ArrowLeft, UserCircle, WifiHigh, WifiSlash } from "@phosphor-icons/react";
 
 interface OwnedNode {
   ownership: NodeOwnership;
@@ -24,7 +25,6 @@ export default function ProfilePage() {
     const client = getSupabase();
 
     async function load() {
-      // Fetch profile by callsign
       const { data: prof } = await client
         .from("profiles")
         .select("*")
@@ -38,11 +38,9 @@ export default function ProfilePage() {
 
       setProfile(prof);
 
-      // Check if this is the viewer's own profile
       const { data: { user } } = await client.auth.getUser();
       setIsOwnProfile(user?.id === prof.id);
 
-      // Fetch owned nodes
       const { data: ownershipData } = await client
         .from("node_ownership")
         .select("*")
@@ -71,19 +69,19 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-900 text-white p-6">
-        <div className="max-w-3xl mx-auto text-gray-400 text-sm">Loading...</div>
+      <main className="min-h-screen p-6">
+        <div className="max-w-3xl mx-auto text-terminal-muted text-sm font-mono animate-pulse-glow">Loading operator dossier...</div>
       </main>
     );
   }
 
   if (!profile) {
     return (
-      <main className="min-h-screen bg-gray-900 text-white p-6">
+      <main className="min-h-screen p-6">
         <div className="max-w-3xl mx-auto">
-          <div className="text-gray-400 text-sm">Operator not found</div>
-          <Link href="/" className="text-blue-400 text-sm mt-2 inline-block">
-            Back to dashboard
+          <div className="text-terminal-muted text-sm font-mono">Operator not found — no signal record</div>
+          <Link href="/" className="text-terminal-green text-sm mt-2 inline-block font-mono">
+            ← Return to operations
           </Link>
         </div>
       </main>
@@ -93,37 +91,41 @@ export default function ProfilePage() {
   const rankInfo = getRankForRole(profile.role, profile.renown);
 
   const ROLE_BADGE: Record<string, string> = {
-    member: "bg-gray-700 text-gray-300",
-    elder: "bg-amber-900 text-amber-300",
-    leader: "bg-purple-900 text-purple-300",
+    member: "border-terminal-muted/50 text-terminal-muted bg-terminal-muted/10",
+    elder: "border-terminal-gold/40 text-terminal-gold bg-terminal-gold/10",
+    leader: "border-terminal-green/40 text-terminal-green bg-terminal-green/10",
   };
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-6">
+    <main className="min-h-screen p-4 sm:p-6">
       <div className="max-w-3xl mx-auto">
         <Link
           href="/"
-          className="text-gray-400 hover:text-gray-200 text-sm mb-6 inline-block"
+          className="text-terminal-muted hover:text-terminal-green text-xs mb-6 inline-flex items-center gap-1 font-mono transition-colors"
         >
-          &larr; Back to dashboard
+          <ArrowLeft size={12} weight="bold" />
+          OPERATIONS
         </Link>
 
         {/* Profile header */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-6">
+        <div className="panel p-6 mb-6">
           <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-2xl font-bold font-mono text-amber-400">
-                {profile.callsign}
-              </h1>
-              <div className="text-amber-400/70 text-sm mt-1">
-                {rankInfo.rank}
+            <div className="flex items-center gap-3">
+              <UserCircle size={32} weight="bold" className="text-terminal-gold" />
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold font-mono text-terminal-gold glow-gold">
+                  {profile.callsign}
+                </h1>
+                <div className="text-terminal-gold/70 text-xs font-mono mt-1">
+                  {rankInfo.rank}
+                </div>
+                {isOwnProfile && (
+                  <div className="text-terminal-muted text-[10px] font-mono mt-1">{profile.email}</div>
+                )}
               </div>
-              {isOwnProfile && (
-                <div className="text-gray-500 text-xs mt-1">{profile.email}</div>
-              )}
             </div>
             <span
-              className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
                 ROLE_BADGE[profile.role] ?? ROLE_BADGE.member
               }`}
             >
@@ -133,37 +135,37 @@ export default function ProfilePage() {
 
           {/* Renown progress */}
           <div className="mt-4">
-            <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+            <div className="flex items-center justify-between text-xs text-terminal-muted font-mono mb-1">
               <span>Renown: {profile.renown.toLocaleString()}</span>
               {rankInfo.nextRenown !== null && (
                 <span>Next: {rankInfo.nextRenown.toLocaleString()}</span>
               )}
             </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-terminal-border rounded-full h-2">
               <div
-                className="bg-amber-500 h-2 rounded-full transition-all"
+                className="bg-terminal-gold h-2 rounded-full transition-all"
                 style={{ width: `${Math.min(rankInfo.progress, 100)}%` }}
               />
             </div>
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-4 mt-4">
+          <div className="grid grid-cols-3 gap-4 mt-4 border-t border-terminal-border pt-4">
             <div>
-              <div className="text-gray-500 text-xs uppercase">Influence</div>
-              <div className="text-white text-sm font-mono mt-0.5">
+              <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Influence</div>
+              <div className="text-foreground text-sm font-mono font-bold mt-0.5">
                 {profile.influence.toLocaleString()}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase">Nodes</div>
-              <div className="text-white text-sm font-mono mt-0.5">
+              <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Nodes</div>
+              <div className="text-foreground text-sm font-mono font-bold mt-0.5">
                 {ownedNodes.length}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase">Joined</div>
-              <div className="text-white text-sm font-mono mt-0.5">
+              <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Joined</div>
+              <div className="text-foreground text-sm font-mono font-bold mt-0.5">
                 {format(new Date(profile.join_date), "MMM yyyy")}
               </div>
             </div>
@@ -171,39 +173,41 @@ export default function ProfilePage() {
         </div>
 
         {/* Owned Nodes */}
-        <h2 className="text-lg font-semibold mb-4">
-          Operated Nodes ({ownedNodes.length})
+        <h2 className="text-sm font-mono font-bold text-terminal-green uppercase tracking-widest mb-3">
+          OPERATED NODES ({ownedNodes.length})
         </h2>
         {ownedNodes.length === 0 ? (
-          <div className="text-gray-500 text-sm mb-8">No nodes claimed yet.</div>
+          <div className="text-terminal-muted text-sm font-mono mb-8">No nodes claimed yet.</div>
         ) : (
           <div className="space-y-2 mb-8">
             {ownedNodes.map(({ ownership, node }) => (
               <Link
                 key={ownership.id}
                 href={`/node/${encodeURIComponent(node.id)}`}
-                className="block bg-gray-800 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors"
+                className="block panel p-4 hover:border-terminal-green/30 transition-colors"
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-white text-sm font-medium">
-                      {node.long_name ?? node.id}
-                    </div>
-                    {node.short_name && (
-                      <div className="text-gray-500 text-xs mt-0.5">
-                        {node.short_name}
-                      </div>
+                  <div className="flex items-center gap-2">
+                    {node.is_online ? (
+                      <WifiHigh size={14} weight="bold" className="text-terminal-green" />
+                    ) : (
+                      <WifiSlash size={14} weight="bold" className="text-terminal-red" />
                     )}
+                    <div>
+                      <div className="text-foreground text-sm font-mono font-bold">
+                        {node.long_name ?? node.id}
+                      </div>
+                      {node.short_name && (
+                        <div className="text-terminal-muted text-xs font-mono mt-0.5">
+                          {node.short_name}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-gray-400 text-xs font-mono">
-                      {(node.xp_total ?? 0).toLocaleString()} XP
+                    <span className="text-terminal-muted text-xs font-mono">
+                      {(node.xp_total ?? 0).toLocaleString()} RN
                     </span>
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        node.is_online ? "bg-green-400" : "bg-red-400"
-                      }`}
-                    />
                   </div>
                 </div>
               </Link>

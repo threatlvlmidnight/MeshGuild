@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
+import { Broadcast } from "@phosphor-icons/react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -48,17 +49,22 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-6">
+    <main className="min-h-screen flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-2">MeshGuild</h1>
-        <p className="text-gray-400 text-sm text-center mb-8">
-          {mode === "login" ? "Sign in to your account" : "Create a new account"}
-        </p>
+        <div className="text-center mb-8">
+          <Broadcast size={32} weight="bold" className="text-terminal-green mx-auto mb-3" />
+          <h1 className="text-xl font-bold font-mono text-terminal-green glow-green">
+            THE SIGNAL ORDER
+          </h1>
+          <p className="text-terminal-muted text-xs font-mono mt-2">
+            {mode === "login" ? "AUTHENTICATE TO ACCESS OPERATIONS" : "REQUEST OPERATOR ACCESS"}
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm text-gray-400 mb-1">
-              Email
+            <label htmlFor="email" className="block text-[10px] text-terminal-muted font-mono uppercase tracking-widest mb-1">
+              EMAIL
             </label>
             <input
               id="email"
@@ -66,14 +72,14 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-              placeholder="you@example.com"
+              className="w-full bg-terminal-panel border border-terminal-border rounded-lg px-3 py-2 text-foreground text-sm font-mono focus:outline-none focus:border-terminal-green/50 transition-colors"
+              placeholder="operator@signal.order"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm text-gray-400 mb-1">
-              Password
+            <label htmlFor="password" className="block text-[10px] text-terminal-muted font-mono uppercase tracking-widest mb-1">
+              PASSWORD
             </label>
             <input
               id="password"
@@ -82,19 +88,19 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+              className="w-full bg-terminal-panel border border-terminal-border rounded-lg px-3 py-2 text-foreground text-sm font-mono focus:outline-none focus:border-terminal-green/50 transition-colors"
               placeholder="••••••••"
             />
           </div>
 
           {error && (
-            <div className="bg-red-900/50 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
+            <div className="border border-terminal-red/30 bg-terminal-red/5 rounded-lg p-3 text-terminal-red text-xs font-mono">
               {error}
             </div>
           )}
 
           {message && (
-            <div className="bg-green-900/50 border border-green-700 rounded-lg p-3 text-green-300 text-sm">
+            <div className="border border-terminal-green/30 bg-terminal-green/5 rounded-lg p-3 text-terminal-green text-xs font-mono">
               {message}
             </div>
           )}
@@ -102,13 +108,13 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+            className="w-full border border-terminal-green/40 bg-terminal-green/10 hover:bg-terminal-green/20 disabled:opacity-50 text-terminal-green font-mono font-bold py-2 px-4 rounded-lg transition-colors text-sm"
           >
             {loading
-              ? "Loading..."
+              ? "AUTHENTICATING..."
               : mode === "login"
-              ? "Sign In"
-              : "Sign Up"}
+              ? "[ SIGN IN ]"
+              : "[ REQUEST ACCESS ]"}
           </button>
         </form>
 
@@ -119,17 +125,17 @@ export default function LoginPage() {
               setError(null);
               setMessage(null);
             }}
-            className="text-gray-400 hover:text-gray-200 text-sm transition-colors"
+            className="text-terminal-muted hover:text-terminal-green text-xs font-mono transition-colors"
           >
             {mode === "login"
-              ? "Need an account? Sign up"
-              : "Already have an account? Sign in"}
+              ? "Need access? Request operator credentials"
+              : "Already an operator? Sign in"}
           </button>
         </div>
 
         <div className="mt-4 text-center">
-          <a href="/" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
-            &larr; Back to dashboard
+          <a href="/" className="text-terminal-muted/50 hover:text-terminal-muted text-[10px] font-mono transition-colors">
+            ← Return to operations
           </a>
         </div>
       </div>

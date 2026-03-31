@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -14,8 +15,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "MeshGuild",
-  description: "OKC Crew — Meshtastic Mesh Network Dashboard",
+  title: "MeshGuild — The Signal Order",
+  description: "Fraternal order of signal operators. Maintain the mesh. Hold the signal.",
 };
 
 export default function RootLayout({
@@ -26,9 +27,22 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased scanline-overlay`}
       >
         {children}
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: "#181b22",
+              border: "1px solid #2a2f3a",
+              color: "#e0e0e0",
+              fontFamily: "var(--font-geist-mono)",
+              fontSize: "13px",
+            },
+          }}
+        />
       </body>
     </html>
   );

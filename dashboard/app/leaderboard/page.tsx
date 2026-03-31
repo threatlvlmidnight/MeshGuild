@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getSupabase, Node } from "@/lib/supabase";
 import { LevelBadge } from "@/components/level-badge";
 import AuthNav from "@/components/auth-nav";
+import { ArrowLeft, Broadcast, SortAscending } from "@phosphor-icons/react";
 
 function GuildHealthBadge({ nodes }: { nodes: Node[] }) {
   if (nodes.length === 0) return null;
@@ -13,31 +14,31 @@ function GuildHealthBadge({ nodes }: { nodes: Node[] }) {
   const score = Math.round((onlineCount / nodes.length) * 100);
 
   let rank: string;
-  let color: string;
+  let colorClass: string;
   if (score >= 90) {
-    rank = "Battle Ready";
-    color = "text-green-400 border-green-700 bg-green-900/30";
+    rank = "BATTLE READY";
+    colorClass = "text-terminal-green border-terminal-green/30 bg-terminal-green/5";
   } else if (score >= 70) {
-    rank = "Operational";
-    color = "text-blue-400 border-blue-700 bg-blue-900/30";
+    rank = "OPERATIONAL";
+    colorClass = "text-terminal-dim border-terminal-dim/30 bg-terminal-dim/5";
   } else if (score >= 50) {
-    rank = "Degraded";
-    color = "text-yellow-400 border-yellow-700 bg-yellow-900/30";
+    rank = "DEGRADED";
+    colorClass = "text-terminal-amber border-terminal-amber/30 bg-terminal-amber/5";
   } else {
-    rank = "Critical";
-    color = "text-red-400 border-red-700 bg-red-900/30";
+    rank = "CRITICAL";
+    colorClass = "text-terminal-red border-terminal-red/30 bg-terminal-red/5";
   }
 
   return (
-    <div className={`border rounded-lg p-4 mb-6 ${color}`}>
+    <div className={`border rounded-lg p-4 mb-6 font-mono ${colorClass}`}>
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-xs uppercase tracking-wide opacity-75">Guild Health</div>
+          <div className="text-[10px] uppercase tracking-widest opacity-75">ORDER STATUS</div>
           <div className="text-2xl font-bold">{score}%</div>
         </div>
         <div className="text-right">
-          <div className="text-lg font-semibold">{rank}</div>
-          <div className="text-xs opacity-75">
+          <div className="text-sm font-bold tracking-wider">{rank}</div>
+          <div className="text-xs opacity-60">
             {onlineCount}/{nodes.length} nodes online
           </div>
         </div>
@@ -46,7 +47,7 @@ function GuildHealthBadge({ nodes }: { nodes: Node[] }) {
   );
 }
 
-export default function Leaderboard() {
+export default function Registry() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"xp" | "level" | "packets" | "uptime">("xp");
@@ -93,26 +94,30 @@ export default function Leaderboard() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-900 text-white p-6">
-        <div className="max-w-4xl mx-auto text-gray-400 text-sm">Loading leaderboard...</div>
+      <main className="min-h-screen p-6">
+        <div className="max-w-4xl mx-auto text-terminal-muted text-sm font-mono animate-pulse-glow">Accessing the Registry...</div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white p-6">
+    <main className="min-h-screen p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <Link
               href="/"
-              className="text-gray-400 hover:text-gray-200 text-sm mb-2 inline-block"
+              className="text-terminal-muted hover:text-terminal-green text-xs mb-2 inline-flex items-center gap-1 font-mono transition-colors"
             >
-              &larr; Dashboard
+              <ArrowLeft size={12} weight="bold" />
+              OPERATIONS
             </Link>
-            <h1 className="text-2xl font-bold">Leaderboard</h1>
-            <p className="text-gray-400 text-sm mt-1">
-              OKC Crew — Node Rankings
+            <h1 className="text-xl sm:text-2xl font-bold font-mono text-terminal-green glow-green flex items-center gap-2">
+              <Broadcast size={20} weight="bold" />
+              THE REGISTRY
+            </h1>
+            <p className="text-terminal-muted text-xs font-mono mt-1">
+              Node Rankings — Signal Order
             </p>
           </div>
           <AuthNav />
@@ -121,82 +126,56 @@ export default function Leaderboard() {
         <GuildHealthBadge nodes={nodes} />
 
         {/* Sort controls */}
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setSortBy("xp")}
-            className={`text-xs px-3 py-1.5 rounded ${
-              sortBy === "xp"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white"
-            }`}
-          >
-            By XP
-          </button>
-          <button
-            onClick={() => setSortBy("level")}
-            className={`text-xs px-3 py-1.5 rounded ${
-              sortBy === "level"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white"
-            }`}
-          >
-            By Level
-          </button>
-          <button
-            onClick={() => setSortBy("packets")}
-            className={`text-xs px-3 py-1.5 rounded ${
-              sortBy === "packets"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white"
-            }`}
-          >
-            By Packets
-          </button>
-          <button
-            onClick={() => setSortBy("uptime")}
-            className={`text-xs px-3 py-1.5 rounded ${
-              sortBy === "uptime"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white"
-            }`}
-          >
-            By Uptime
-          </button>
+        <div className="flex items-center gap-2 mb-4">
+          <SortAscending size={14} weight="bold" className="text-terminal-muted" />
+          {(["xp", "level", "packets", "uptime"] as const).map((key) => (
+            <button
+              key={key}
+              onClick={() => setSortBy(key)}
+              className={`text-[10px] font-mono uppercase tracking-wider px-3 py-1.5 rounded border transition-colors ${
+                sortBy === key
+                  ? "border-terminal-green/40 text-terminal-green bg-terminal-green/10"
+                  : "border-terminal-border text-terminal-muted hover:text-foreground hover:border-terminal-border"
+              }`}
+            >
+              {key === "xp" ? "RENOWN" : key}
+            </button>
+          ))}
         </div>
 
-        {/* Leaderboard table */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+        {/* Registry table */}
+        <div className="panel overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-700 text-gray-400 text-xs uppercase">
+              <tr className="border-b border-terminal-border text-terminal-muted text-[10px] uppercase tracking-widest font-mono">
                 <th className="text-left p-3 w-12">#</th>
-                <th className="text-left p-3">Node</th>
-                <th className="text-left p-3">Level</th>
-                <th className="text-right p-3">XP</th>
-                <th className="text-right p-3 hidden sm:table-cell">Packets</th>
-                <th className="text-right p-3 hidden sm:table-cell">Uptime</th>
-                <th className="text-center p-3">Status</th>
+                <th className="text-left p-3">NODE</th>
+                <th className="text-left p-3">LEVEL</th>
+                <th className="text-right p-3">RENOWN</th>
+                <th className="text-right p-3 hidden sm:table-cell">PACKETS</th>
+                <th className="text-right p-3 hidden sm:table-cell">UPTIME</th>
+                <th className="text-center p-3">STATUS</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((node, i) => (
                   <tr
                     key={node.id}
-                    className="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors"
+                    className="border-b border-terminal-border/50 hover:bg-terminal-green/5 transition-colors"
                   >
-                    <td className="p-3 text-gray-500 font-mono text-sm">
+                    <td className="p-3 text-terminal-muted font-mono text-sm">
                       {i + 1}
                     </td>
                     <td className="p-3">
                       <Link
                         href={`/node/${encodeURIComponent(node.id)}`}
-                        className="hover:text-blue-400 transition-colors"
+                        className="hover:text-terminal-green transition-colors"
                       >
-                        <div className="text-white text-sm font-semibold">
+                        <div className="text-foreground text-sm font-mono font-bold">
                           {node.long_name ?? node.id}
                         </div>
                         {node.short_name && (
-                          <div className="text-gray-500 text-xs">
+                          <div className="text-terminal-muted text-xs font-mono">
                             {node.short_name}
                           </div>
                         )}
@@ -205,30 +184,30 @@ export default function Leaderboard() {
                     <td className="p-3">
                       <LevelBadge xp={node.xp_total ?? 0} />
                     </td>
-                    <td className="p-3 text-right font-mono text-sm text-gray-300">
+                    <td className="p-3 text-right font-mono text-sm text-foreground">
                       {(node.xp_total ?? 0).toLocaleString()}
                     </td>
-                    <td className="p-3 text-right font-mono text-sm text-gray-300 hidden sm:table-cell">
+                    <td className="p-3 text-right font-mono text-sm text-terminal-muted hidden sm:table-cell">
                       {(node.packets_total ?? 0).toLocaleString()}
                     </td>
                     <td className={`p-3 text-right font-mono text-sm hidden sm:table-cell ${
                       node.uptime_pct !== null
-                        ? node.uptime_pct >= 90 ? "text-green-400"
-                        : node.uptime_pct >= 70 ? "text-yellow-400"
-                        : "text-red-400"
-                        : "text-gray-500"
+                        ? node.uptime_pct >= 90 ? "text-terminal-green"
+                        : node.uptime_pct >= 70 ? "text-terminal-amber"
+                        : "text-terminal-red"
+                        : "text-terminal-muted"
                     }`}>
                       {node.uptime_pct !== null ? `${node.uptime_pct}%` : "—"}
                     </td>
                     <td className="p-3 text-center">
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
+                        className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${
                           node.is_online
-                            ? "bg-green-900 text-green-300"
-                            : "bg-red-900 text-red-300"
+                            ? "border-terminal-green/30 text-terminal-green bg-terminal-green/5"
+                            : "border-terminal-red/30 text-terminal-red bg-terminal-red/5"
                         }`}
                       >
-                        {node.is_online ? "Online" : "Offline"}
+                        {node.is_online ? "ON" : "DARK"}
                       </span>
                     </td>
                   </tr>

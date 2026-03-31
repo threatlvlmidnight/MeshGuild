@@ -3,25 +3,78 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #111318;
+  --foreground: #e0e0e0;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* Terminal glow effects */
+.glow-green {
+  text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+}
+
+.glow-gold {
+  text-shadow: 0 0 8px rgba(212, 167, 70, 0.4);
+}
+
+.glow-red {
+  text-shadow: 0 0 8px rgba(255, 68, 68, 0.4);
+}
+
+/* Panel style */
+.panel {
+  @apply bg-terminal-panel border border-terminal-border rounded-lg;
+}
+
+/* Scanline overlay (subtle) */
+.scanline-overlay::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 136, 0.015) 2px,
+    rgba(0, 255, 136, 0.015) 4px
+  );
+  z-index: 9999;
+}
+
+/* Status indicators */
+.status-online {
+  @apply text-terminal-green;
+  text-shadow: 0 0 6px rgba(0, 255, 136, 0.5);
+}
+
+.status-offline {
+  @apply text-terminal-red;
+  text-shadow: 0 0 6px rgba(255, 68, 68, 0.5);
+}
+
+/* Terminal-style scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111318;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2f3a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4050;
 }
