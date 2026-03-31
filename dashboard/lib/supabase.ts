@@ -34,5 +34,6 @@ export interface Alert {
   node_id: string;
   alert_type: string;
   message: string;
+  acknowledged: boolean;
   created_at: string;
 }

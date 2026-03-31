@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getSupabase, Node, Alert } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 
@@ -35,52 +36,54 @@ function NodeCard({ node }: { node: Node }) {
     : "never";
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-white font-semibold text-sm">
-            {node.long_name ?? node.id}
-          </div>
-          {node.short_name && (
-            <div className="text-gray-400 text-xs">{node.short_name}</div>
-          )}
-        </div>
-        <span
-          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-            node.is_online
-              ? "bg-green-900 text-green-300"
-              : "bg-red-900 text-red-300"
-          }`}
-        >
-          {node.is_online ? "Online" : "Offline"}
-        </span>
-      </div>
-
-      <div className="text-gray-400 text-xs">Last seen {lastSeen}</div>
-
-      <div className="grid grid-cols-3 gap-2 text-xs">
-        <div>
-          <div className="text-gray-500 uppercase tracking-wide mb-0.5">RSSI</div>
-          <div className={`font-mono font-semibold ${rssiColor(node.rssi)}`}>
-            {node.rssi !== null ? `${node.rssi} dBm` : "—"}
-          </div>
-        </div>
-        <div>
-          <div className="text-gray-500 uppercase tracking-wide mb-0.5">SNR</div>
-          <div className={`font-mono font-semibold ${snrColor(node.snr)}`}>
-            {node.snr !== null ? `${node.snr} dB` : "—"}
-          </div>
-        </div>
-        {node.battery_level !== null && (
+    <Link href={`/node/${encodeURIComponent(node.id)}`} className="block">
+      <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 flex flex-col gap-3 hover:border-gray-500 transition-colors">
+        <div className="flex items-center justify-between">
           <div>
-            <div className="text-gray-500 uppercase tracking-wide mb-0.5">BAT</div>
-            <div className={`font-mono font-semibold ${batteryColor(node.battery_level)}`}>
-              {node.battery_level}%
+            <div className="text-white font-semibold text-sm">
+              {node.long_name ?? node.id}
+            </div>
+            {node.short_name && (
+              <div className="text-gray-400 text-xs">{node.short_name}</div>
+            )}
+          </div>
+          <span
+            className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              node.is_online
+                ? "bg-green-900 text-green-300"
+                : "bg-red-900 text-red-300"
+            }`}
+          >
+            {node.is_online ? "Online" : "Offline"}
+          </span>
+        </div>
+
+        <div className="text-gray-400 text-xs">Last seen {lastSeen}</div>
+
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div>
+            <div className="text-gray-500 uppercase tracking-wide mb-0.5">RSSI</div>
+            <div className={`font-mono font-semibold ${rssiColor(node.rssi)}`}>
+              {node.rssi !== null ? `${node.rssi} dBm` : "—"}
             </div>
           </div>
-        )}
+          <div>
+            <div className="text-gray-500 uppercase tracking-wide mb-0.5">SNR</div>
+            <div className={`font-mono font-semibold ${snrColor(node.snr)}`}>
+              {node.snr !== null ? `${node.snr} dB` : "—"}
+            </div>
+          </div>
+          {node.battery_level !== null && (
+            <div>
+              <div className="text-gray-500 uppercase tracking-wide mb-0.5">BAT</div>
+              <div className={`font-mono font-semibold ${batteryColor(node.battery_level)}`}>
+                {node.battery_level}%
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -90,19 +93,27 @@ function AlertsBanner({ alerts }: { alerts: Alert[] }) {
   if (alerts.length === 0) return null;
 
   return (
-    <div className="bg-yellow-900 border border-yellow-700 rounded-lg p-4 mb-6">
-      <div className="text-yellow-300 font-semibold text-sm mb-2">
-        {alerts.length} Active Alert{alerts.length > 1 ? "s" : ""}
+    <Link href="/alerts" className="block">
+      <div className="bg-yellow-900 border border-yellow-700 rounded-lg p-4 mb-6 hover:border-yellow-500 transition-colors">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-yellow-300 font-semibold text-sm">
+            {alerts.length} Active Alert{alerts.length > 1 ? "s" : ""}
+          </div>
+          <span className="text-yellow-400 text-xs">View all &rarr;</span>
+        </div>
+        <ul className="space-y-1">
+          {alerts.slice(0, 3).map((alert) => (
+            <li key={alert.id} className="text-yellow-200 text-xs">
+              <span className="font-mono text-yellow-400">[{alert.alert_type}]</span>{" "}
+              {alert.message}
+            </li>
+          ))}
+          {alerts.length > 3 && (
+            <li className="text-yellow-400 text-xs">+{alerts.length - 3} more</li>
+          )}
+        </ul>
       </div>
-      <ul className="space-y-1">
-        {alerts.map((alert) => (
-          <li key={alert.id} className="text-yellow-200 text-xs">
-            <span className="font-mono text-yellow-400">[{alert.alert_type}]</span>{" "}
-            {alert.message}
-          </li>
-        ))}
-      </ul>
-    </div>
+    </Link>
   );
 }
 
