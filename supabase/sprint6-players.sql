@@ -268,3 +268,9 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+-- Fix rank titles for non-member roles that defaulted to Initiate I
+UPDATE profiles SET rank_title = 'Architect I', rank_level = 1
+  WHERE role = 'leader' AND rank_title = 'Initiate I';
+UPDATE profiles SET rank_title = 'Sentinel I', rank_level = 1
+  WHERE role = 'elder' AND rank_title = 'Initiate I';
