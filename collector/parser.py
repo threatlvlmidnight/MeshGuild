@@ -23,8 +23,16 @@ def parse_packet(raw_json: "str | bytes") -> "dict | None":
     raw_ts = data.get("timestamp", 0)
     timestamp = datetime.fromtimestamp(raw_ts, tz=timezone.utc).isoformat()
 
+    # Destination node (broadcast = 0xFFFFFFFF)
+    to_num = data.get("to")
+    to_node_id = None
+    if to_num is not None and to_num != 0xFFFFFFFF:
+        to_node_id = f"!{to_num:08x}"
+
     result = {
         "node_id": node_id,
+        "to_node_id": to_node_id,
+        "channel_index": data.get("channel", 0),
         "timestamp": timestamp,
         "rssi": data.get("rssi"),
         "snr": data.get("snr"),
@@ -33,6 +41,7 @@ def parse_packet(raw_json: "str | bytes") -> "dict | None":
         "long_name": None,
         "battery_level": None,
         "uptime_seconds": None,
+        "text": None,
     }
 
     payload = data.get("payload", {})
@@ -55,5 +64,12 @@ def parse_packet(raw_json: "str | bytes") -> "dict | None":
         metrics = payload.get("device_metrics", payload)
         result["battery_level"] = metrics.get("battery_level")
         result["uptime_seconds"] = metrics.get("uptime_seconds")
+
+    elif packet_type == "text":
+        # Text messages: payload is the message string itself
+        if isinstance(payload, str):
+            result["text"] = payload
+        elif isinstance(payload, dict):
+            result["text"] = payload.get("text", "")
 
     return result

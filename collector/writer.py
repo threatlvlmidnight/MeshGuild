@@ -1,7 +1,9 @@
-"""Supabase writer: upsert nodes, insert telemetry, insert alerts."""
+"""Supabase writer: upsert nodes, insert telemetry, insert alerts, broadcast messages."""
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import json
+import urllib.request
 from dateutil.parser import parse as parse_dt
 from supabase import create_client, Client
 from collector.config import Config
@@ -11,6 +13,8 @@ class SupabaseWriter:
     def __init__(self, config: Config):
         self.client: Client = create_client(config.supabase_url, config.supabase_service_key)
         self.network_id = config.network_id
+        self._supabase_url = config.supabase_url
+        self._supabase_key = config.supabase_service_key
 
     def upsert_node(self, packet: dict):
         """Upsert a node row from a parsed packet."""
@@ -71,6 +75,75 @@ class SupabaseWriter:
             "message": alert["message"],
         }
         self.client.table("alerts").insert(row).execute()
+
+    def broadcast_message(self, packet: dict):
+        """Broadcast a text message to the dashboard via Supabase Realtime REST API.
+
+        No database write — messages are ephemeral, cached in localStorage on the dashboard.
+        """
+        text = packet.get("text")
+        if not text:
+            return
+
+        # Look up sender's short_name from the nodes table
+        sender_name = packet.get("short_name")
+        if not sender_name:
+            node = self.get_node(packet["node_id"])
+            if node:
+                sender_name = node.get("short_name")
+
+        message = {
+            "id": "{}-{}".format(packet["node_id"], packet["timestamp"]),
+            "node_id": packet["node_id"],
+            "to_node_id": packet.get("to_node_id"),
+            "channel_index": packet.get("channel_index", 0),
+            "content": text,
+            "sender_name": sender_name,
+            "source": "mesh",
+            "received_at": packet["timestamp"],
+        }
+
+        url = "{}/realtime/v1/api/broadcast".format(self._supabase_url)
+        headers = {
+            "Content-Type": "application/json",
+            "apikey": self._supabase_key,
+            "Authorization": "Bearer {}".format(self._supabase_key),
+        }
+        body = json.dumps({
+            "messages": [{
+                "topic": "mesh-messages",
+                "event": "new_message",
+                "payload": message,
+            }]
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+            urllib.request.urlopen(req, timeout=5)
+        except Exception as e:
+            print("[broadcast] failed: {}".format(e))
+
+    def poll_outbound_queue(self):
+        """Fetch pending outbound messages from the queue. Returns list of rows."""
+        try:
+            result = (
+                self.client.table("outbound_queue")
+                .select("*")
+                .order("created_at")
+                .limit(20)
+                .execute()
+            )
+            return result.data or []
+        except Exception as e:
+            print("[outbound] poll error: {}".format(e))
+            return []
+
+    def delete_outbound(self, row_id):
+        """Delete a sent outbound message from the queue."""
+        try:
+            self.client.table("outbound_queue").delete().eq("id", row_id).execute()
+        except Exception as e:
+            print("[outbound] delete error: {}".format(e))
 
     def get_online_nodes(self) -> list[dict]:
         """Fetch all nodes currently marked as online."""

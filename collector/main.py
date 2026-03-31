@@ -1,5 +1,6 @@
-"""MeshGuild Collector — MQTT subscriber that writes to Supabase."""
+"""MeshGuild Collector — MQTT subscriber that writes to Supabase + broadcasts messages."""
 
+import json
 import sys
 import time
 import threading
@@ -19,8 +20,12 @@ def main():
 
     print(f"[collector] Connecting to MQTT broker at {config.mqtt_host}:{config.mqtt_port}")
     print(f"[collector] Subscribing to: {config.mqtt_topic}")
+    print(f"[collector] Publish topic: {config.mqtt_publish_topic}")
     print(f"[collector] Writing to Supabase: {config.supabase_url}")
     print(f"[collector] Network: {config.network_id}")
+
+    # Will hold the MQTT client reference for outbound publishing
+    mqtt_client_ref = {"client": None}
 
     def on_connect(client, userdata, flags, reason_code, properties):
         if reason_code == 0:
@@ -36,7 +41,7 @@ def main():
             if packet is None:
                 return
 
-            print(f"[collector] {packet['node_id']} | rssi={packet['rssi']} snr={packet['snr']} bat={packet['battery_level']}")
+            print(f"[collector] {packet['node_id']} | type={packet['packet_type']} rssi={packet['rssi']} snr={packet['snr']} bat={packet['battery_level']}")
 
             writer.upsert_node(packet)
             writer.insert_telemetry(packet)
@@ -45,6 +50,11 @@ def main():
             for alert in alerts:
                 print(f"[alert] {alert['alert_type']}: {alert['message']}")
                 writer.insert_alert(alert)
+
+            # Broadcast text messages to the dashboard via Supabase Realtime
+            if packet.get("text"):
+                print(f"[mesh-msg] {packet['node_id']}: {packet['text'][:80]}")
+                writer.broadcast_message(packet)
 
         except Exception as e:
             print(f"[collector] Error processing message: {e}")
@@ -80,10 +90,47 @@ def main():
     stats_timer = threading.Thread(target=hourly_stats_loop, daemon=True)
     stats_timer.start()
 
+    def outbound_poll_loop():
+        """Background thread: poll outbound_queue every 2s, publish to MQTT."""
+        while True:
+            time.sleep(2)
+            try:
+                rows = writer.poll_outbound_queue()
+                for row in rows:
+                    mc = mqtt_client_ref.get("client")
+                    if mc is None:
+                        continue
+
+                    # Publish to MQTT as a Meshtastic-compatible JSON packet
+                    payload = {
+                        "type": "sendtext",
+                        "payload": row["content"],
+                    }
+                    if row.get("channel_index"):
+                        payload["channel"] = row["channel_index"]
+                    if row.get("to_node_id"):
+                        # Parse hex node id back to int for the "to" field
+                        try:
+                            payload["to"] = int(row["to_node_id"].lstrip("!"), 16)
+                        except (ValueError, AttributeError):
+                            pass
+
+                    topic = config.mqtt_publish_topic
+                    mc.publish(topic, json.dumps(payload))
+                    print(f"[outbound] sent to mesh: {row['content'][:80]}")
+                    writer.delete_outbound(row["id"])
+
+            except Exception as e:
+                print(f"[outbound] poll error: {e}")
+
+    outbound_timer = threading.Thread(target=outbound_poll_loop, daemon=True)
+    outbound_timer.start()
+
     # Connect MQTT
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
     client.on_message = on_message
+    mqtt_client_ref["client"] = client
 
     try:
         client.connect(config.mqtt_host, config.mqtt_port, keepalive=60)

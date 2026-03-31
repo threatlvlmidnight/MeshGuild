@@ -100,6 +100,17 @@ export interface Card {
   earned_at: string;
 }
 
+export interface MeshMessage {
+  id: string;
+  node_id: string;
+  to_node_id: string | null;
+  channel_index: number;
+  content: string;
+  sender_name: string | null;
+  source: "mesh" | "dashboard";
+  received_at: string;
+}
+
 // Node level system (kept for backward compat — nodes still earn XP)
 export const LEVEL_THRESHOLDS = [
   { level: 1, xp: 0, title: "Beacon" },
