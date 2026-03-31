@@ -15,7 +15,8 @@ class Config:
         self.supabase_url = os.environ.get("SUPABASE_URL")
         self.supabase_service_key = os.environ.get("SUPABASE_SERVICE_KEY")
         self.supabase_anon_key = os.environ.get("SUPABASE_ANON_KEY")
-        self.mqtt_publish_topic = os.environ.get("MQTT_PUBLISH_TOPIC", "msh/US/2/json/mqtt")
+        self.mqtt_publish_topic = os.environ.get("MQTT_PUBLISH_TOPIC", "msh/US/2/json/mqtt/")
+        self.gateway_node_id = os.environ.get("GATEWAY_NODE_ID", "")  # hex e.g. !02ee16c8
         self.network_id = os.environ.get("NETWORK_ID", "okc-crew")
 
         if not self.supabase_url:

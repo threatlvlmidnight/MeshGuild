@@ -21,6 +21,7 @@ def main():
     print(f"[collector] Connecting to MQTT broker at {config.mqtt_host}:{config.mqtt_port}")
     print(f"[collector] Subscribing to: {config.mqtt_topic}")
     print(f"[collector] Publish topic: {config.mqtt_publish_topic}")
+    print(f"[collector] Gateway node: {config.gateway_node_id or 'not set'}")
     print(f"[collector] Writing to Supabase: {config.supabase_url}")
     print(f"[collector] Network: {config.network_id}")
 
@@ -118,21 +119,33 @@ def main():
                     if mc is None:
                         continue
 
-                    # Publish to MQTT as a Meshtastic-compatible JSON packet
+                    # Build Meshtastic JSON downlink packet
+                    # Docs: https://meshtastic.org/docs/software/integrations/mqtt/
+                    # Requires: "from" as decimal node ID, "type", "payload"
+                    # Node must have a channel named "mqtt" with downlink enabled
+
+                    # Determine sender node ID (decimal)
+                    from_hex = row.get("from_node_id") or config.gateway_node_id
+                    from_decimal = None
+                    if from_hex:
+                        try:
+                            from_decimal = int(from_hex.lstrip("!"), 16)
+                        except (ValueError, AttributeError):
+                            pass
+
+                    if from_decimal is None:
+                        print(f"[outbound] SKIPPED — no gateway node configured (set GATEWAY_NODE_ID in .env)")
+                        writer.delete_outbound(row["id"])
+                        continue
+
                     payload = {
+                        "from": from_decimal,
                         "type": "sendtext",
                         "payload": row["content"],
                     }
                     if row.get("channel_index") is not None:
                         payload["channel"] = row["channel_index"]
-                    if row.get("from_node_id"):
-                        # Use the selected node as the sender
-                        try:
-                            payload["from"] = int(row["from_node_id"].lstrip("!"), 16)
-                        except (ValueError, AttributeError):
-                            pass
                     if row.get("to_node_id"):
-                        # Parse hex node id back to int for the "to" field
                         try:
                             payload["to"] = int(row["to_node_id"].lstrip("!"), 16)
                         except (ValueError, AttributeError):
@@ -140,7 +153,7 @@ def main():
 
                     topic = config.mqtt_publish_topic
                     mc.publish(topic, json.dumps(payload))
-                    print(f"[outbound] sent to mesh via {topic}: ch={row.get('channel_index', 0)} from={row.get('from_node_id', 'default')} | {row['content'][:80]}")
+                    print(f"[outbound] sent via {topic}: from={from_decimal} ch={row.get('channel_index', 0)} to={payload.get('to', 'broadcast')} | {row['content'][:80]}")
                     writer.delete_outbound(row["id"])
 
             except Exception as e:

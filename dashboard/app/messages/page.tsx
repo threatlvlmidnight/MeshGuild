@@ -35,6 +35,8 @@ export default function MessagesPage() {
   const [connected, setConnected] = useState(false);
   const [ownedNodes, setOwnedNodes] = useState<{ node_id: string; short_name: string | null }[]>([]);
   const [selectedNode, setSelectedNode] = useState<string>("");
+  const [allNodes, setAllNodes] = useState<{ id: string; short_name: string | null }[]>([]);
+  const [dmTarget, setDmTarget] = useState<string>("");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showLogs, setShowLogs] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -79,6 +81,17 @@ export default function MessagesPage() {
               addLog("info", `Loaded ${nodes.length} owned node(s): ${nodes.map((n: { node_id: string; short_name: string | null }) => n.short_name || n.node_id).join(", ")}`);
             } else {
               addLog("warn", "No owned nodes found — claim a node via the Rite of First Signal");
+            }
+          });
+
+        // Fetch all known nodes for DM targeting
+        supabase
+          .from("nodes")
+          .select("id, short_name")
+          .order("short_name")
+          .then(({ data }) => {
+            if (data) {
+              setAllNodes(data);
             }
           });
       }
@@ -134,7 +147,8 @@ export default function MessagesPage() {
   const handleSend = useCallback(async () => {
     if (!input.trim() || !user || sending) return;
     setSending(true);
-    addLog("info", `[TX] Queuing message on CH ${sendChannel}${selectedNode ? ` from ${selectedNode}` : ""}: ${input.trim().slice(0, 60)}`);
+    const targetLabel = dmTarget ? `→ ${dmTarget}` : `CH ${sendChannel}`;
+    addLog("info", `[TX] Queuing message on ${targetLabel}${selectedNode ? ` from ${selectedNode}` : ""}: ${input.trim().slice(0, 60)}`);
 
     try {
       const supabase = getSupabase();
@@ -143,6 +157,9 @@ export default function MessagesPage() {
         channel_index: sendChannel,
         player_id: user.id,
       };
+      if (dmTarget) {
+        insertData.to_node_id = dmTarget;
+      }
 
       // Try with from_node_id first, fall back without if column doesn't exist yet
       if (selectedNode) {
@@ -168,7 +185,7 @@ export default function MessagesPage() {
         const localMsg: MeshMessage = {
           id: `local-${Date.now()}`,
           node_id: selectedNode || "dashboard",
-          to_node_id: null,
+          to_node_id: dmTarget || null,
           channel_index: sendChannel,
           content: input.trim(),
           sender_name: "YOU",
@@ -183,7 +200,7 @@ export default function MessagesPage() {
     } finally {
       setSending(false);
     }
-  }, [input, user, sending, sendChannel, selectedNode, addLog]);
+  }, [input, user, sending, sendChannel, selectedNode, dmTarget, addLog]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -374,9 +391,9 @@ export default function MessagesPage() {
                 {[0, 1, 2].map((ch) => (
                   <button
                     key={ch}
-                    onClick={() => setSendChannel(ch)}
+                    onClick={() => { setSendChannel(ch); setDmTarget(""); }}
                     className={`px-1.5 py-0.5 text-[10px] font-mono font-bold rounded transition-colors ${
-                      sendChannel === ch
+                      sendChannel === ch && !dmTarget
                         ? "bg-terminal-gold/10 text-terminal-gold border border-terminal-gold/30"
                         : "text-terminal-muted hover:text-foreground border border-transparent"
                     }`}
@@ -384,6 +401,32 @@ export default function MessagesPage() {
                     {ch}
                   </button>
                 ))}
+              </div>
+
+              {/* DM target selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-terminal-muted text-[10px] font-mono uppercase tracking-widest">
+                  TO:
+                </span>
+                <div className="relative">
+                  <select
+                    value={dmTarget}
+                    onChange={(e) => setDmTarget(e.target.value)}
+                    className={`appearance-none bg-terminal-panel border rounded pl-2 pr-6 py-0.5 text-[11px] font-mono focus:outline-none transition-colors cursor-pointer ${
+                      dmTarget
+                        ? "border-terminal-amber/40 text-terminal-amber focus:border-terminal-amber/60"
+                        : "border-terminal-border text-terminal-muted focus:border-terminal-green/50"
+                    }`}
+                  >
+                    <option value="">Broadcast</option>
+                    {allNodes.map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {n.short_name || n.id}
+                      </option>
+                    ))}
+                  </select>
+                  <CaretDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-terminal-muted pointer-events-none" />
+                </div>
               </div>
             </div>
 
