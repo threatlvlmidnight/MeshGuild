@@ -117,7 +117,7 @@ export default function Registry() {
               THE REGISTRY
             </h1>
             <p className="text-terminal-muted text-xs font-mono mt-1">
-              Node Rankings — Signal Order
+              Node Rankings — The Signal
             </p>
           </div>
           <AuthNav />

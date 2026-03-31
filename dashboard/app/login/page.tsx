@@ -54,7 +54,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Broadcast size={32} weight="bold" className="text-terminal-green mx-auto mb-3" />
           <h1 className="text-xl font-bold font-mono text-terminal-green glow-green">
-            THE SIGNAL ORDER
+            THE SIGNAL
           </h1>
           <p className="text-terminal-muted text-xs font-mono mt-2">
             {mode === "login" ? "AUTHENTICATE TO ACCESS OPERATIONS" : "REQUEST OPERATOR ACCESS"}

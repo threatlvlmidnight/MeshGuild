@@ -15,7 +15,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "MeshGuild — The Signal Order",
+  title: "MeshGuild — The Signal",
   description: "Fraternal order of signal operators. Maintain the mesh. Hold the signal.",
 };
 

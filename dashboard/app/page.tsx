@@ -230,7 +230,7 @@ export default function Home() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold font-mono text-terminal-green glow-green tracking-tight">
-              THE SIGNAL ORDER
+              THE SIGNAL
             </h1>
             <p className="text-terminal-muted text-xs font-mono mt-1">
               <Broadcast size={12} weight="bold" className="inline mr-1" />
