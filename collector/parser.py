@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 
 
-def parse_packet(raw_json: str | bytes) -> dict | None:
+def parse_packet(raw_json: "str | bytes") -> "dict | None":
     """Parse a Meshtastic MQTT JSON packet into a normalized dict.
 
     Returns None if the packet is malformed or missing required fields.

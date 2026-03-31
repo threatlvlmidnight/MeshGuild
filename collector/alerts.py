@@ -32,7 +32,7 @@ def check_packet_alerts(packet: dict) -> list[dict]:
     return alerts
 
 
-def find_offline_nodes(nodes: list[dict], now: datetime | None = None) -> list[dict]:
+def find_offline_nodes(nodes: list, now: "datetime | None" = None) -> list:
     """Given a list of node rows, return NODE_OFFLINE alerts for stale ones.
 
     Each node dict must have: id, last_seen (ISO string or datetime), is_online (bool).
