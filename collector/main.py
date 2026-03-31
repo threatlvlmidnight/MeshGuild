@@ -123,8 +123,14 @@ def main():
                         "type": "sendtext",
                         "payload": row["content"],
                     }
-                    if row.get("channel_index"):
+                    if row.get("channel_index") is not None:
                         payload["channel"] = row["channel_index"]
+                    if row.get("from_node_id"):
+                        # Use the selected node as the sender
+                        try:
+                            payload["from"] = int(row["from_node_id"].lstrip("!"), 16)
+                        except (ValueError, AttributeError):
+                            pass
                     if row.get("to_node_id"):
                         # Parse hex node id back to int for the "to" field
                         try:
@@ -134,7 +140,7 @@ def main():
 
                     topic = config.mqtt_publish_topic
                     mc.publish(topic, json.dumps(payload))
-                    print(f"[outbound] sent to mesh: {row['content'][:80]}")
+                    print(f"[outbound] sent to mesh via {topic}: ch={row.get('channel_index', 0)} from={row.get('from_node_id', 'default')} | {row['content'][:80]}")
                     writer.delete_outbound(row["id"])
 
             except Exception as e:
