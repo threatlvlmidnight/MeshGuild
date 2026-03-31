@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabase, Node } from "@/lib/supabase";
 import { formatDistanceToNow, format } from "date-fns";
@@ -81,14 +81,31 @@ function SignalChart({
 
 export default function NodeDetail() {
   const params = useParams();
+  const router = useRouter();
   const nodeId = decodeURIComponent(params.id as string);
 
   const [node, setNode] = useState<Node | null>(null);
   const [telemetry, setTelemetry] = useState<TelemetryPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     const client = getSupabase();
+
+    async function loadAuth() {
+      const { data: { user } } = await client.auth.getUser();
+      if (user) {
+        const { data: profile } = await client
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        setIsAdmin(profile?.role === "admin");
+      }
+    }
+    loadAuth();
 
     async function load() {
       const [{ data: nodeData }, { data: telemData }] = await Promise.all([
@@ -248,6 +265,51 @@ export default function NodeDetail() {
             python3 -m bots.reboot {node.id}
           </code>
         </div>
+
+        {/* Stop Tracking — admin only */}
+        {isAdmin && (
+          <div className="bg-gray-800 border border-red-900 rounded-lg p-4 mb-8">
+            <div className="text-gray-300 text-sm mb-2">Stop Tracking</div>
+            <p className="text-gray-500 text-xs mb-3">
+              Remove this node and all its telemetry and alerts from the dashboard.
+              This cannot be undone.
+            </p>
+            {!confirmRemove ? (
+              <button
+                onClick={() => setConfirmRemove(true)}
+                className="text-xs bg-red-900 hover:bg-red-800 text-red-300 px-3 py-1.5 rounded transition-colors"
+              >
+                Stop Tracking This Node
+              </button>
+            ) : (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    setRemoving(true);
+                    const client = getSupabase();
+                    await client.from("telemetry").delete().eq("node_id", nodeId);
+                    await client.from("alerts").delete().eq("node_id", nodeId);
+                    await client.from("xp_events").delete().eq("node_id", nodeId);
+                    await client.from("achievements").delete().eq("node_id", nodeId);
+                    await client.from("cards").delete().eq("node_id", nodeId);
+                    await client.from("nodes").delete().eq("id", nodeId);
+                    router.push("/");
+                  }}
+                  disabled={removing}
+                  className="text-xs bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded transition-colors"
+                >
+                  {removing ? "Removing..." : "Confirm Remove"}
+                </button>
+                <button
+                  onClick={() => setConfirmRemove(false)}
+                  className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Node ID for reference */}
         <div className="text-gray-600 text-xs font-mono">{node.id}</div>
