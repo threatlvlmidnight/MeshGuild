@@ -26,7 +26,7 @@ def get_weekly_stats(supabase_client, network_id: str) -> list[dict]:
     # Get all nodes
     nodes_resp = (
         supabase_client.table("nodes")
-        .select("id, short_name, long_name, is_online, last_seen, rssi, snr, battery_level")
+        .select("id, short_name, long_name, is_online, last_seen, rssi, snr, battery_level, xp_total, level")
         .eq("network_id", network_id)
         .execute()
     )
@@ -67,6 +67,8 @@ def get_weekly_stats(supabase_client, network_id: str) -> list[dict]:
             "battery": node.get("battery_level"),
             "packets_7d": packet_count,
             "alerts_7d": alert_count,
+            "xp_total": node.get("xp_total", 0),
+            "level": node.get("level", 1),
         })
 
     return stats
@@ -80,10 +82,15 @@ def format_report(node_stats: dict) -> str:
     snr = f"{s['snr']}dB" if s["snr"] is not None else "n/a"
     bat = f"{s['battery']}%" if s["battery"] is not None else "n/a"
 
+    level_titles = {1: "Beacon", 2: "Relay", 3: "Warden", 4: "Guardian", 5: "Sentinel", 6: "Archnode"}
+    level = s.get("level", 1)
+    title = level_titles.get(level, "Beacon")
+    xp = s.get("xp_total", 0)
+
     msg = (
         f"[MeshGuild] Weekly Report\n"
-        f"{s['name']} [{status}]\n"
-        f"Pkts: {s['packets_7d']} | Alerts: {s['alerts_7d']}\n"
+        f"{s['name']} • {title} Lv{level}\n"
+        f"XP: {xp:,} | Pkts: {s['packets_7d']}\n"
         f"RSSI: {rssi} SNR: {snr} Bat: {bat}"
     )
     return msg

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getSupabase, Node, Alert } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 import AuthNav from "@/components/auth-nav";
+import { LevelBadge } from "@/components/level-badge";
 
 // --- Color helpers ---
 
@@ -82,6 +83,14 @@ function NodeCard({ node }: { node: Node }) {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Level badge */}
+        <div className="flex items-center justify-between">
+          <LevelBadge xp={node.xp_total ?? 0} />
+          <span className="text-gray-500 text-xs font-mono">
+            {(node.xp_total ?? 0).toLocaleString()} XP
+          </span>
         </div>
       </div>
     </Link>
@@ -195,8 +204,37 @@ export default function Home() {
             <h1 className="text-2xl font-bold text-white">MeshGuild</h1>
             <p className="text-gray-400 text-sm mt-1">OKC Crew — Node Health</p>
           </div>
-          <AuthNav />
+          <div className="flex items-center gap-4">
+            <Link
+              href="/leaderboard"
+              className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              Leaderboard
+            </Link>
+            <AuthNav />
+          </div>
         </div>
+
+        {/* Guild Health Score */}
+        {nodes.length > 0 && (() => {
+          const onlineCount = nodes.filter((n) => n.is_online).length;
+          const score = Math.round((onlineCount / nodes.length) * 100);
+          let rank: string;
+          let color: string;
+          if (score >= 90) { rank = "Battle Ready"; color = "text-green-400 border-green-700 bg-green-900/30"; }
+          else if (score >= 70) { rank = "Operational"; color = "text-blue-400 border-blue-700 bg-blue-900/30"; }
+          else if (score >= 50) { rank = "Degraded"; color = "text-yellow-400 border-yellow-700 bg-yellow-900/30"; }
+          else { rank = "Critical"; color = "text-red-400 border-red-700 bg-red-900/30"; }
+          return (
+            <div className={`border rounded-lg p-3 mb-6 flex items-center justify-between ${color}`}>
+              <div className="text-xs uppercase tracking-wide opacity-75">Guild Health</div>
+              <div className="flex items-center gap-3">
+                <span className="text-lg font-bold">{score}%</span>
+                <span className="text-sm font-semibold">{rank}</span>
+              </div>
+            </div>
+          );
+        })()}
 
         <AlertsBanner alerts={alerts} />
 

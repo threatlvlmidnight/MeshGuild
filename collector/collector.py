@@ -15,12 +15,18 @@ from collector.config import Config
 from collector.parser import parse_packet
 from collector.supabase_client import SupabaseWriter
 from collector.alert_engine import AlertEngine
+from collector.xp_engine import XpEngine
+from collector.achievement_engine import AchievementEngine
+from collector.card_engine import CardEngine
 
 
 def main():
     config = Config()
     writer = SupabaseWriter(config.supabase_url, config.supabase_service_key)
     alert_engine = AlertEngine(writer, config.network_id)
+    xp_engine = XpEngine(writer, config.network_id)
+    achievement_engine = AchievementEngine(writer, config.network_id)
+    card_engine = CardEngine(writer, config.network_id)
 
     def on_connect(client, userdata, flags, reason_code, properties):
         if reason_code == 0:
@@ -45,6 +51,8 @@ def main():
             writer.upsert_node(packet, config.network_id)
             writer.insert_telemetry(packet, config.network_id)
             alert_engine.check_packet(packet)
+            xp_engine.award_packet_xp(packet["node_id"])
+            achievement_engine.check_on_packet(packet["node_id"])
         except Exception as e:
             print(f"  -> ERROR writing to Supabase: {e}")
 
@@ -56,9 +64,23 @@ def main():
             except Exception as e:
                 print(f"[OFFLINE CHECK] ERROR: {e}")
 
+    def hourly_xp_loop():
+        while True:
+            time.sleep(3600)
+            try:
+                xp_engine.award_uptime_xp()
+                xp_engine.check_streaks()
+                achievement_engine.check_night_watch()
+            except Exception as e:
+                print(f"[HOURLY XP] ERROR: {e}")
+
     # Start background offline checker
     timer = threading.Thread(target=offline_check_loop, daemon=True)
     timer.start()
+
+    # Start hourly XP / achievement checker
+    xp_timer = threading.Thread(target=hourly_xp_loop, daemon=True)
+    xp_timer.start()
 
     # Connect to MQTT
     mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)

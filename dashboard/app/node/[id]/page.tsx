@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getSupabase, Node } from "@/lib/supabase";
+import { getSupabase, Node, Achievement, Card, RARITY_COLORS, RARITY_BG, ACHIEVEMENT_LABELS } from "@/lib/supabase";
+import { LevelBadge, XpProgressBar } from "@/components/level-badge";
 import { formatDistanceToNow, format } from "date-fns";
 import {
   LineChart,
@@ -86,6 +87,8 @@ export default function NodeDetail() {
 
   const [node, setNode] = useState<Node | null>(null);
   const [telemetry, setTelemetry] = useState<TelemetryPoint[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -111,7 +114,7 @@ export default function NodeDetail() {
     loadAuth();
 
     async function load() {
-      const [{ data: nodeData }, { data: telemData }] = await Promise.all([
+      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }] = await Promise.all([
         client.from("nodes").select("*").eq("id", nodeId).single(),
         client
           .from("telemetry")
@@ -119,9 +122,21 @@ export default function NodeDetail() {
           .eq("node_id", nodeId)
           .order("timestamp", { ascending: true })
           .limit(500),
+        client
+          .from("achievements")
+          .select("*")
+          .eq("node_id", nodeId)
+          .order("earned_at", { ascending: false }),
+        client
+          .from("cards")
+          .select("*")
+          .eq("node_id", nodeId)
+          .order("earned_at", { ascending: false }),
       ]);
       setNode(nodeData);
       setTelemetry(telemData ?? []);
+      setAchievements(achData ?? []);
+      setCards(cardData ?? []);
       setLoading(false);
     }
     load();
@@ -230,6 +245,76 @@ export default function NodeDetail() {
             </div>
           </div>
         </div>
+
+        {/* XP & Level */}
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Progression</h2>
+            <LevelBadge xp={node.xp_total ?? 0} size="md" />
+          </div>
+          <XpProgressBar xp={node.xp_total ?? 0} />
+        </div>
+
+        {/* Achievements */}
+        <h2 className="text-lg font-semibold mb-4">Achievements</h2>
+        {achievements.length === 0 ? (
+          <div className="text-gray-500 text-sm mb-8">No achievements earned yet.</div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+            {achievements.map((ach) => {
+              const label = ACHIEVEMENT_LABELS[ach.achievement_key] || {
+                name: ach.achievement_key,
+                emoji: "🏆",
+              };
+              return (
+                <div
+                  key={ach.id}
+                  className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-center"
+                >
+                  <div className="text-2xl mb-1">{label.emoji}</div>
+                  <div className="text-white text-sm font-semibold">
+                    {label.name}
+                  </div>
+                  <div className="text-gray-500 text-xs mt-1">
+                    {new Date(ach.earned_at).toLocaleDateString()}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Card Collection */}
+        <h2 className="text-lg font-semibold mb-4">Card Collection</h2>
+        {cards.length === 0 ? (
+          <div className="text-gray-500 text-sm mb-8">No cards collected yet.</div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+            {cards.map((card) => (
+              <div
+                key={card.id}
+                className={`border border-gray-700 rounded-lg p-3 ${
+                  RARITY_BG[card.rarity] || "bg-gray-800"
+                }`}
+              >
+                <div
+                  className={`text-sm font-semibold ${
+                    RARITY_COLORS[card.rarity] || "text-gray-300"
+                  }`}
+                >
+                  {card.card_name}
+                </div>
+                <div className="text-gray-400 text-xs mt-1">{card.rarity}</div>
+                <div className="text-gray-500 text-xs mt-1">
+                  {card.trigger_event}
+                </div>
+                <div className="text-gray-600 text-xs mt-1">
+                  {new Date(card.earned_at).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Signal history charts */}
         <h2 className="text-lg font-semibold mb-4">Signal History</h2>
