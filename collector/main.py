@@ -14,11 +14,17 @@ from collector.config import Config
 from collector.parser import parse_packet
 from collector.alerts import check_packet_alerts, find_offline_nodes
 from collector.writer import SupabaseWriter
+from collector.xp_engine import XpEngine
+from collector.achievement_engine import AchievementEngine
+from collector.card_engine import CardEngine
 
 
 def main():
     config = Config()
     writer = SupabaseWriter(config)
+    xp_engine = XpEngine(writer, config.network_id)
+    achievement_engine = AchievementEngine(writer, config.network_id)
+    card_engine = CardEngine(writer, config.network_id)
 
     print(f"[collector] Connecting to MQTT broker at {config.mqtt_host}:{config.mqtt_port}")
     print(f"[collector] Subscribing to: {config.mqtt_topic}")
@@ -57,6 +63,13 @@ def main():
             for alert in alerts:
                 print(f"[alert] {alert['alert_type']}: {alert['message']}")
                 writer.insert_alert(alert)
+
+            # XP + achievements on every packet
+            try:
+                xp_engine.award_packet_xp(packet["node_id"])
+                achievement_engine.check_on_packet(packet["node_id"])
+            except Exception as e:
+                print(f"[xp] error: {e}")
 
             # Broadcast text messages to the dashboard via Supabase Realtime
             if packet.get("text"):
@@ -103,13 +116,16 @@ def main():
     checker.start()
 
     def hourly_stats_loop():
-        """Background thread: recompute node stats every hour."""
+        """Background thread: recompute node stats + award uptime XP every hour."""
         while True:
             time.sleep(3600)
             try:
+                xp_engine.award_uptime_xp()
+                xp_engine.check_streaks()
+                achievement_engine.check_night_watch()
                 writer.recompute_all_stats()
             except Exception as e:
-                print(f"[collector] Stats recompute error: {e}")
+                print(f"[collector] Hourly loop error: {e}")
 
     stats_timer = threading.Thread(target=hourly_stats_loop, daemon=True)
     stats_timer.start()

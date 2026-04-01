@@ -35,7 +35,7 @@ function batteryColor(level: number | null): string {
 
 // --- Node card ---
 
-function NodeCard({ node, index }: { node: Node; index: number }) {
+function NodeCard({ node, index, xpPerHour }: { node: Node; index: number; xpPerHour: number }) {
   const lastSeen = node.last_seen
     ? formatDistanceToNow(new Date(node.last_seen), { addSuffix: true })
     : "never";
@@ -112,9 +112,14 @@ function NodeCard({ node, index }: { node: Node; index: number }) {
           {/* Level badge */}
           <div className="flex items-center justify-between border-t border-terminal-border pt-2">
             <LevelBadge xp={node.xp_total ?? 0} />
-            <span className="text-terminal-muted text-xs font-mono">
-              {(node.xp_total ?? 0).toLocaleString()} RN
-            </span>
+            <div className="text-right">
+              <span className="text-terminal-muted text-xs font-mono">
+                {(node.xp_total ?? 0).toLocaleString()} RN
+              </span>
+              {xpPerHour > 0 && (
+                <div className="text-terminal-green text-[10px] font-mono">+{xpPerHour}/hr</div>
+              )}
+            </div>
           </div>
         </div>
       </Link>
@@ -268,6 +273,7 @@ export default function Home() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [operatorCount, setOperatorCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [xpRates, setXpRates] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const client = getSupabase();
@@ -293,6 +299,18 @@ export default function Home() {
           .eq("acknowledged", false)
           .order("created_at", { ascending: false });
         setAlerts(alertData ?? []);
+
+        // XP rates (last hour)
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: xpData } = await client
+          .from("xp_events")
+          .select("node_id, xp_awarded")
+          .gte("created_at", hourAgo);
+        const rates: Record<string, number> = {};
+        for (const row of xpData ?? []) {
+          rates[row.node_id] = (rates[row.node_id] || 0) + row.xp_awarded;
+        }
+        setXpRates(rates);
       }
 
       setLoading(false);
@@ -429,7 +447,7 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {nodes.map((node, i) => (
-              <NodeCard key={node.id} node={node} index={i} />
+              <NodeCard key={node.id} node={node} index={i} xpPerHour={xpRates[node.id] || 0} />
             ))}
           </div>
         )}

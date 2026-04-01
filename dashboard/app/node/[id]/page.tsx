@@ -100,6 +100,7 @@ export default function NodeDetail() {
   const [claiming, setClaiming] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [xpRate, setXpRate] = useState<{ perHour: number; today: number; breakdown: Record<string, number> } | null>(null);
 
   useEffect(() => {
     const client = getSupabase();
@@ -119,7 +120,10 @@ export default function NodeDetail() {
     loadAuth();
 
     async function load() {
-      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }, { data: ownerData }] = await Promise.all([
+      const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
+
+      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }, { data: ownerData }, { data: xpHourData }, { data: xpTodayData }] = await Promise.all([
         client.from("nodes").select("*").eq("id", nodeId).single(),
         client
           .from("telemetry")
@@ -143,7 +147,28 @@ export default function NodeDetail() {
           .eq("node_id", nodeId)
           .limit(1)
           .maybeSingle(),
+        client
+          .from("xp_events")
+          .select("event_type, xp_awarded")
+          .eq("node_id", nodeId)
+          .gte("created_at", hourAgo),
+        client
+          .from("xp_events")
+          .select("event_type, xp_awarded")
+          .eq("node_id", nodeId)
+          .gte("created_at", todayStart),
       ]);
+
+      // Compute XP rate
+      const hourEvents = xpHourData ?? [];
+      const todayEvents = xpTodayData ?? [];
+      const perHour = hourEvents.reduce((sum: number, e: { xp_awarded: number }) => sum + e.xp_awarded, 0);
+      const today = todayEvents.reduce((sum: number, e: { xp_awarded: number }) => sum + e.xp_awarded, 0);
+      const breakdown: Record<string, number> = {};
+      for (const e of hourEvents) {
+        breakdown[e.event_type] = (breakdown[e.event_type] || 0) + e.xp_awarded;
+      }
+      setXpRate({ perHour, today, breakdown });
       setNode(nodeData);
       setTelemetry(telemData ?? []);
       setAchievements(achData ?? []);
@@ -445,6 +470,43 @@ export default function NodeDetail() {
             <LevelBadge xp={node.xp_total ?? 0} size="md" />
           </div>
           <XpProgressBar xp={node.xp_total ?? 0} />
+
+          {/* XP Rate */}
+          {xpRate && (
+            <div className="mt-4 border-t border-terminal-border pt-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div>
+                  <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">RN / HOUR</div>
+                  <div className={`text-lg font-bold font-mono mt-1 ${
+                    xpRate.perHour > 0 ? "text-terminal-green" : "text-terminal-muted"
+                  }`}>
+                    +{xpRate.perHour.toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">RN TODAY</div>
+                  <div className="text-foreground text-lg font-bold font-mono mt-1">
+                    +{xpRate.today.toLocaleString()}
+                  </div>
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">THIS HOUR</div>
+                  <div className="text-xs font-mono mt-1 space-y-0.5">
+                    {Object.keys(xpRate.breakdown).length === 0 ? (
+                      <span className="text-terminal-muted">No activity</span>
+                    ) : (
+                      Object.entries(xpRate.breakdown).map(([type, xp]) => (
+                        <div key={type} className="flex justify-between">
+                          <span className="text-terminal-muted">{type.replace("_", " ")}</span>
+                          <span className="text-terminal-green">+{xp}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Commendations (Achievements) */}
