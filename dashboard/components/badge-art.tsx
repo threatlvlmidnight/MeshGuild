@@ -10,7 +10,7 @@ export type CommendationBadgeKey =
   | "FIELDCRAFT"
   | "SIGNAL_BOOST";
 
-export type SpecialBadgeKey = "FOUNDER";
+export type SpecialBadgeKey = "FOUNDER" | "PIONEER";
 
 export type BadgeKey = CommendationBadgeKey | SpecialBadgeKey;
 
@@ -131,6 +131,28 @@ export const BADGE_REGISTRY: Record<string, BadgeDef> = {
     ],
   },
 
+  // ── PIONEER ── shield: first defenders, early builders
+  PIONEER: {
+    key: "PIONEER",
+    label: "Pioneer",
+    description: "Among the first to establish the Mesh Guild",
+    color: "#ff7043",
+    accent: "#bf360c",
+    shadow: "rgba(255,112,67,0.65)",
+    special: true,
+    pixels: [
+      [0, 0, 1, 1, 1, 1, 1, 0, 0],
+      [0, 1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 1, 1, 0, 1, 0, 1, 1, 0],
+      [0, 1, 1, 0, 2, 0, 1, 1, 0],
+      [0, 1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 0, 1, 1, 1, 1, 1, 0, 0],
+      [0, 0, 0, 1, 1, 1, 0, 0, 0],
+      [0, 0, 0, 0, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ],
+  },
+
   // ── FOUNDER ── 8-pointed star: singular, luminous, legendary
   FOUNDER: {
     key: "FOUNDER",
@@ -154,6 +176,29 @@ export const BADGE_REGISTRY: Record<string, BadgeDef> = {
   },
 };
 
+// ── Special badge options (for admin award UI) ────────────────────────────────
+// Add new seasonal badge keys here as needed — they'll render with a fallback icon
+// until custom pixel art is added to BADGE_REGISTRY.
+export const SPECIAL_BADGE_KEYS: SpecialBadgeKey[] = ["FOUNDER", "PIONEER"];
+export const SPECIAL_BADGE_OPTIONS = SPECIAL_BADGE_KEYS.map((k) => ({
+  key: k,
+  label: BADGE_REGISTRY[k].label,
+  description: BADGE_REGISTRY[k].description,
+}));
+
+// ── Fallback for unknown / seasonal badge keys ─────────────────────────────────
+const FALLBACK_PIXELS: number[][] = [
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 1, 0, 0, 0, 0],
+  [0, 0, 0, 1, 1, 1, 0, 0, 0],
+  [0, 0, 1, 1, 2, 1, 1, 0, 0],
+  [0, 0, 0, 1, 1, 1, 0, 0, 0],
+  [0, 0, 0, 0, 1, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
+];
+
 const PIXEL_SIZES = { sm: 3, md: 5, lg: 8 } as const;
 
 interface BadgeArtProps {
@@ -169,8 +214,16 @@ export function BadgeArt({
   showLabel = false,
   className = "",
 }: BadgeArtProps) {
-  const def = BADGE_REGISTRY[badgeKey];
-  if (!def) return null;
+  const def: BadgeDef = BADGE_REGISTRY[badgeKey] ?? {
+    key: badgeKey as BadgeKey,
+    label: badgeKey.replaceAll("_", " "),
+    description: "Special recognition badge",
+    color: "#a0a0a0",
+    accent: "#ffffff",
+    shadow: "rgba(160,160,160,0.5)",
+    special: true,
+    pixels: FALLBACK_PIXELS,
+  };
 
   const px = PIXEL_SIZES[size];
   const dim = 9 * px;

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getSupabase, Profile } from "@/lib/supabase";
+import { getSupabase, Profile, PlayerBadge } from "@/lib/supabase";
 import { ArrowLeft, Shield, CheckCircle, UserCircle } from "@phosphor-icons/react";
+import { BadgeArt, SPECIAL_BADGE_OPTIONS } from "@/components/badge-art";
 
 type Role = "member" | "elder" | "leader";
 
@@ -18,6 +19,12 @@ export default function AdminPage() {
   const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [playerBadgesMap, setPlayerBadgesMap] = useState<Map<string, PlayerBadge[]>>(new Map());
+  const [badgeTarget, setBadgeTarget] = useState("");
+  const [badgeKey, setBadgeKey] = useState<string>(SPECIAL_BADGE_OPTIONS[0]?.key ?? "FOUNDER");
+  const [badgeNote, setBadgeNote] = useState("");
+  const [awardingBadge, setAwardingBadge] = useState(false);
+  const [badgeMessage, setBadgeMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -55,6 +62,19 @@ export default function AdminPage() {
       .order("created_at", { ascending: true });
 
     setProfiles(allProfiles ?? []);
+
+    const { data: allBadges } = await supabase
+      .from("player_badges")
+      .select("*")
+      .order("awarded_at", { ascending: false });
+    const badgeMap = new Map<string, PlayerBadge[]>();
+    for (const badge of allBadges ?? []) {
+      const list = badgeMap.get(badge.player_id) ?? [];
+      list.push(badge);
+      badgeMap.set(badge.player_id, list);
+    }
+    setPlayerBadgesMap(badgeMap);
+
     setLoading(false);
   }
 
@@ -91,6 +111,42 @@ export default function AdminPage() {
     setProfiles((prev) =>
       prev.map((p) => (p.id === profileId ? { ...p, role: newRole } : p))
     );
+  }
+
+  async function awardBadge() {
+    if (!badgeTarget || !currentProfile) return;
+    setAwardingBadge(true);
+    setBadgeMessage(null);
+    const supabase = getSupabase();
+    const target = profiles.find((p) => p.id === badgeTarget);
+    const option = SPECIAL_BADGE_OPTIONS.find((o) => o.key === badgeKey);
+    const { error: insertError } = await supabase.from("player_badges").insert({
+      player_id: badgeTarget,
+      badge_key: badgeKey,
+      badge_label: option?.label ?? badgeKey,
+      note: badgeNote.trim() || null,
+      awarded_by: currentProfile.id,
+    });
+    if (insertError) {
+      if (insertError.message.includes("player_badges_unique") || insertError.message.includes("duplicate")) {
+        setBadgeMessage(`${target?.callsign ?? "Operator"} already holds the ${option?.label ?? badgeKey} badge.`);
+      } else {
+        setBadgeMessage(`Error: ${insertError.message}`);
+      }
+    } else {
+      setBadgeMessage(`${option?.label ?? badgeKey} badge awarded to ${target?.callsign ?? "operator"}.`);
+      setBadgeNote("");
+      const { data: refreshed } = await supabase
+        .from("player_badges")
+        .select("*")
+        .eq("player_id", badgeTarget);
+      setPlayerBadgesMap((prev) => {
+        const next = new Map(prev);
+        next.set(badgeTarget, refreshed ?? []);
+        return next;
+      });
+    }
+    setAwardingBadge(false);
   }
 
   async function toggleApproval(profileId: string, currentApproved: boolean) {
@@ -212,6 +268,13 @@ export default function AdminPage() {
                         {profile.rank_title}
                       </div>
                     )}
+                    {(playerBadgesMap.get(profile.id) ?? []).length > 0 && (
+                      <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                        {(playerBadgesMap.get(profile.id) ?? []).map((b) => (
+                          <BadgeArt key={b.id} badgeKey={b.badge_key} size="sm" />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -238,6 +301,70 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Special Badge Award */}
+        <div className="mb-8">
+          <h2 className="text-sm font-mono font-bold text-terminal-gold uppercase tracking-widest mb-3">
+            SPECIAL BADGE AWARD
+          </h2>
+          <div className="panel p-4">
+            <p className="text-xs font-mono text-terminal-muted mb-4">
+              Award special recognition badges. Milestone badges (Reliability, Fieldcraft, etc.) are granted automatically when operators hit set targets.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="text-[10px] font-mono text-terminal-muted uppercase tracking-widest block mb-1.5">Operator</label>
+                <select
+                  value={badgeTarget}
+                  onChange={(e) => setBadgeTarget(e.target.value)}
+                  className="w-full bg-terminal-panel border border-terminal-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-terminal-gold/40 transition-colors"
+                >
+                  <option value="">— select operator —</option>
+                  {approved.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.callsign ?? p.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-mono text-terminal-muted uppercase tracking-widest block mb-1.5">Badge</label>
+                <div className="flex items-center gap-2">
+                  {badgeKey && <BadgeArt badgeKey={badgeKey} size="sm" />}
+                  <select
+                    value={badgeKey}
+                    onChange={(e) => setBadgeKey(e.target.value)}
+                    className="flex-1 bg-terminal-panel border border-terminal-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-terminal-gold/40 transition-colors"
+                  >
+                    {SPECIAL_BADGE_OPTIONS.map((o) => (
+                      <option key={o.key} value={o.key}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <textarea
+              value={badgeNote}
+              onChange={(e) => setBadgeNote(e.target.value)}
+              maxLength={200}
+              rows={2}
+              placeholder="Optional citation note..."
+              className="w-full bg-terminal-panel border border-terminal-border rounded px-3 py-2 text-sm font-mono text-foreground placeholder:text-terminal-muted/50 focus:outline-none focus:border-terminal-gold/40 transition-colors mb-3"
+            />
+            <div className="flex items-center justify-between gap-3">
+              {badgeMessage ? (
+                <p className="text-xs font-mono text-terminal-muted">{badgeMessage}</p>
+              ) : <div />}
+              <button
+                onClick={awardBadge}
+                disabled={!badgeTarget || awardingBadge}
+                className="px-4 py-1.5 rounded border border-terminal-gold/40 bg-terminal-gold/10 text-terminal-gold text-xs font-mono font-bold hover:bg-terminal-gold/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {awardingBadge ? "AWARDING..." : "AWARD BADGE"}
+              </button>
+            </div>
           </div>
         </div>
 

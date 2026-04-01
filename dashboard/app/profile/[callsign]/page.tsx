@@ -152,7 +152,6 @@ export default function ProfilePage() {
 
   const rankInfo = getRankForRole(profile.role, profile.renown);
   const commendationCount = commendations.length;
-  const earnedCommendationTypes = new Set(commendations.map((c) => c.commendation_type));
   const awardedByViewer = new Set(
     commendations
       .filter((commendation) => commendation.from_player_id === viewerId)
@@ -291,7 +290,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Citations & Decorations */}
-        {(playerBadges.length > 0 || earnedCommendationTypes.size > 0) && (
+        {playerBadges.length > 0 && (
           <div className="panel p-4 mb-6">
             <div className="text-[10px] font-mono font-bold text-terminal-muted uppercase tracking-widest mb-4">
               Citations &amp; Decorations
@@ -304,9 +303,6 @@ export default function ProfilePage() {
                   size="lg"
                   showLabel
                 />
-              ))}
-              {Array.from(earnedCommendationTypes).map((type) => (
-                <BadgeArt key={type} badgeKey={type} size="md" showLabel />
               ))}
             </div>
           </div>
