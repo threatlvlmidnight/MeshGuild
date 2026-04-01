@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Broadcast, BookOpen, Plugs, Radio, Lightning, Shield, ChatText, Scroll } from "@phosphor-icons/react";
+import { Broadcast, BookOpen, Plugs, Radio, Lightning, Shield, ChatText, Scroll, HardDrive } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 
 interface Section {
@@ -76,6 +76,111 @@ const SECTIONS: Section[] = [
             to claim your node
           </li>
         </ol>
+      </div>
+    ),
+  },
+  {
+    id: "hardware-guide",
+    title: "HARDWARE GUIDE",
+    icon: <HardDrive size={18} weight="bold" />,
+    content: (
+      <div className="space-y-4 text-sm font-mono text-terminal-muted">
+        <p>
+          Any Meshtastic-compatible radio will work. Below is the board used to found this
+          guild, plus three pre-assembled options for operators who want to skip the soldering iron.
+        </p>
+
+        {/* Founder's board */}
+        <div className="panel p-4 border-terminal-green/30 space-y-2">
+          <p className="text-terminal-green font-bold text-xs tracking-wider">▸ FOUNDER&apos;S BOARD — recommended starting point</p>
+          <p className="font-bold text-foreground">YELUFT ESP32 LoRa V3</p>
+          <p className="text-xs leading-relaxed">
+            ESP32-S3 · SX1262 · 915 MHz · 0.96&quot; OLED · WiFi + BLE · Type-C · battery interface.
+            Flash with the{" "}
+            <a
+              href="https://flasher.meshtastic.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-terminal-green hover:underline"
+            >
+              Meshtastic web flasher
+            </a>
+            {" "}using Chrome, then configure MQTT (see next section). ~$22.
+          </p>
+          <a
+            href="https://www.amazon.com/dp/B0FT7WR12P"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-xs text-terminal-green border border-terminal-green/40 px-3 py-1 hover:bg-terminal-green/10 transition-colors mt-1"
+          >
+            [ VIEW ON AMAZON ]
+          </a>
+        </div>
+
+        {/* Three prebuilt tiers */}
+        <p className="text-terminal-amber font-bold text-xs tracking-wider pt-2">PRE-ASSEMBLED OPTIONS — no soldering required</p>
+
+        <div className="space-y-3">
+          {/* Tier 1: Portable + GPS + Battery */}
+          <div className="panel p-4 border-terminal-border space-y-2">
+            <p className="text-terminal-gold font-bold text-xs tracking-wider">① PORTABLE NODE — battery + GPS included</p>
+            <p className="font-bold text-foreground">LILYGO T-Beam Supreme</p>
+            <p className="text-xs leading-relaxed">
+              ESP32-S3 · SX1262 · L76K GPS · 18650 battery slot · OLED. The field-proven portable
+              platform for operators who roam. Meshtastic firmware available directly from the web flasher.
+            </p>
+            <a
+              href="https://lilygo.cc/products/t-beam-s3-supreme"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-xs text-terminal-gold border border-terminal-gold/40 px-3 py-1 hover:bg-terminal-gold/10 transition-colors mt-1"
+            >
+              [ VIEW AT LILYGO ]
+            </a>
+          </div>
+
+          {/* Tier 2: Relay node */}
+          <div className="panel p-4 border-terminal-border space-y-2">
+            <p className="text-terminal-gold font-bold text-xs tracking-wider">② RELAY NODE — fixed installation, pre-assembled</p>
+            <p className="font-bold text-foreground">SenseCAP Solar Node P1-Pro</p>
+            <p className="text-xs leading-relaxed">
+              Solar-powered · LoRa SX1262 · outdoor weatherproof enclosure · GPS. Mount it high,
+              point the panel south, and let it relay indefinitely. No power cable required.
+            </p>
+            <a
+              href="https://www.amazon.com/dp/B0FMDHBWX8"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-xs text-terminal-gold border border-terminal-gold/40 px-3 py-1 hover:bg-terminal-gold/10 transition-colors mt-1"
+            >
+              [ VIEW ON AMAZON ]
+            </a>
+          </div>
+
+          {/* Tier 3: All-in-one messenger */}
+          <div className="panel p-4 border-terminal-border space-y-2">
+            <p className="text-terminal-gold font-bold text-xs tracking-wider">③ ALL-IN-ONE MESSENGER — keyboard + display + LoRa</p>
+            <p className="font-bold text-foreground">LILYGO T-Deck</p>
+            <p className="text-xs leading-relaxed">
+              ESP32-S3 · SX1262 · built-in QWERTY keyboard · 2.8&quot; color display · battery.
+              The only off-grid Meshtastic device with a physical keyboard. Send messages
+              without a phone. Full Meshtastic firmware support.
+            </p>
+            <a
+              href="https://lilygo.cc/products/t-deck"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-xs text-terminal-gold border border-terminal-gold/40 px-3 py-1 hover:bg-terminal-gold/10 transition-colors mt-1"
+            >
+              [ VIEW AT LILYGO ]
+            </a>
+          </div>
+        </div>
+
+        <p className="text-xs text-terminal-muted/60 pt-1">
+          All boards require Meshtastic firmware and MQTT configuration before joining the guild network.
+          See Device Configuration below.
+        </p>
       </div>
     ),
   },
