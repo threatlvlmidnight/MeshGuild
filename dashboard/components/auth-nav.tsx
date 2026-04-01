@@ -1,15 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { getSupabase, Profile } from "@/lib/supabase";
-import { SignOut, Shield, UserCircle, ChatText, Radio, Wrench } from "@phosphor-icons/react";
+import { getSupabase, Profile, getRankForRole } from "@/lib/supabase";
+import { SignOut, Shield, UserCircle, ChatText, Radio, Wrench, GearSix, Check } from "@phosphor-icons/react";
 import type { User } from "@supabase/supabase-js";
+
+type RolePreview = "live" | "member" | "elder" | "leader";
+
+const PREVIEW_OPTIONS: { value: RolePreview; label: string }[] = [
+  { value: "live", label: "Actual Role" },
+  { value: "member", label: "Member View" },
+  { value: "elder", label: "Elder View" },
+  { value: "leader", label: "Leader View" },
+];
 
 export default function AuthNav() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [rolePreview, setRolePreview] = useState<RolePreview>("live");
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -31,7 +43,24 @@ export default function AuthNav() {
       setLoading(false);
     }
 
+    function syncRolePreview() {
+      if (typeof window === "undefined") return;
+      const stored = window.localStorage.getItem("meshguild-role-preview");
+      if (stored === "member" || stored === "elder" || stored === "leader" || stored === "live") {
+        setRolePreview(stored);
+      } else {
+        setRolePreview("live");
+      }
+    }
+
+    function handleClickOutside(event: MouseEvent) {
+      if (settingsRef.current && event.target instanceof Node && !settingsRef.current.contains(event.target)) {
+        setShowSettings(false);
+      }
+    }
+
     loadAuth();
+    syncRolePreview();
 
     const {
       data: { subscription },
@@ -49,7 +78,14 @@ export default function AuthNav() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    window.addEventListener("meshguild-settings-changed", syncRolePreview);
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("meshguild-settings-changed", syncRolePreview);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   async function handleLogout() {
@@ -58,6 +94,15 @@ export default function AuthNav() {
     setUser(null);
     setProfile(null);
     window.location.href = "/";
+  }
+
+  function updateRolePreview(next: RolePreview) {
+    setRolePreview(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("meshguild-role-preview", next);
+      window.dispatchEvent(new Event("meshguild-settings-changed"));
+    }
+    setShowSettings(false);
   }
 
   if (loading) return null;
@@ -73,13 +118,16 @@ export default function AuthNav() {
     );
   }
 
-  const isOfficer = profile?.role === "leader" || profile?.role === "elder";
+  const effectiveRole = rolePreview === "live" ? (profile?.role ?? "member") : rolePreview;
+  const isOfficer = effectiveRole === "leader" || effectiveRole === "elder";
+  const previewActive = rolePreview !== "live" && effectiveRole !== profile?.role;
+  const previewRank = profile ? getRankForRole(effectiveRole, profile.renown ?? 0).rank : null;
 
   // Check if user has a primary node (rite completed)
   const hasNode = profile?.primary_node_id !== null && profile?.primary_node_id !== undefined;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap justify-end">
       {!hasNode && (
         <Link
           href="/onboarding"
@@ -118,10 +166,51 @@ export default function AuthNav() {
           <span className="hidden sm:inline">GUILD</span>
         </Link>
       )}
+      <div className="relative" ref={settingsRef}>
+        <button
+          onClick={() => setShowSettings((prev) => !prev)}
+          className={`flex items-center gap-1 text-xs font-mono transition-colors ${
+            showSettings || previewActive
+              ? "text-terminal-dim"
+              : "text-terminal-muted hover:text-terminal-dim"
+          }`}
+          title="Interface settings"
+        >
+          <GearSix size={14} weight="bold" />
+          <span className="hidden sm:inline">SET</span>
+        </button>
+
+        {showSettings && (
+          <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border border-terminal-border bg-[#161a20] shadow-xl z-50 p-2">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-terminal-muted mb-2 px-1">
+              Interface Settings
+            </div>
+            <div className="space-y-1">
+              {PREVIEW_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => updateRolePreview(option.value)}
+                  className={`w-full flex items-center justify-between rounded px-2 py-1.5 text-xs font-mono transition-colors ${
+                    rolePreview === option.value
+                      ? "bg-terminal-dim/10 text-terminal-dim"
+                      : "text-terminal-muted hover:bg-terminal-panel hover:text-foreground"
+                  }`}
+                >
+                  <span>{option.label}</span>
+                  {rolePreview === option.value && <Check size={12} weight="bold" />}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] font-mono text-terminal-muted/70 mt-2 px-1 leading-relaxed">
+              UI preview only — permissions stay unchanged.
+            </p>
+          </div>
+        )}
+      </div>
       <span className="text-terminal-border">|</span>
-      {profile?.rank_title && (
+      {previewRank && (
         <span className="text-xs font-mono text-terminal-gold/70 hidden sm:inline">
-          {profile.rank_title}
+          {previewRank}
         </span>
       )}
       {profile?.callsign ? (

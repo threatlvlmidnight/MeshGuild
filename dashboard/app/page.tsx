@@ -425,10 +425,24 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [xpRates, setXpRates] = useState<Record<string, number>>({});
   const [demoMode, setDemoMode] = useState(false);
+  const [rolePreview, setRolePreview] = useState<"live" | "member" | "elder" | "leader">("live");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setDemoMode(window.localStorage.getItem("meshguild-demo-nodes") === "true");
+
+    const syncSettings = () => {
+      setDemoMode(window.localStorage.getItem("meshguild-demo-nodes") === "true");
+      const storedRole = window.localStorage.getItem("meshguild-role-preview");
+      if (storedRole === "member" || storedRole === "elder" || storedRole === "leader" || storedRole === "live") {
+        setRolePreview(storedRole);
+      } else {
+        setRolePreview("live");
+      }
+    };
+
+    syncSettings();
+    window.addEventListener("meshguild-settings-changed", syncSettings);
+    return () => window.removeEventListener("meshguild-settings-changed", syncSettings);
   }, []);
 
   useEffect(() => {
@@ -611,6 +625,17 @@ export default function Home() {
         })()}
 
         <AlertsBanner alerts={alerts} />
+
+        {rolePreview !== "live" && (
+          <div className="border border-terminal-gold/30 bg-terminal-gold/5 rounded-lg p-3 mb-4">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-terminal-gold mb-1">
+              Preview Mode Active
+            </div>
+            <p className="text-xs font-mono text-terminal-muted">
+              Viewing the interface as a <span className="text-terminal-gold uppercase">{rolePreview}</span>. This only changes the UI presentation.
+            </p>
+          </div>
+        )}
 
         {demoMode && (
           <div className="border border-terminal-dim/30 bg-terminal-dim/5 rounded-lg p-3 mb-6">
