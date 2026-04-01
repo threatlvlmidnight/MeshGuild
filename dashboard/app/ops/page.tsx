@@ -12,8 +12,10 @@ import {
   XCircle,
   Heartbeat,
   Clock,
+  Terminal,
+  FunnelSimple,
 } from "@phosphor-icons/react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 
 interface OpsCommand {
   id: number;
@@ -31,6 +33,16 @@ interface CollectorHeartbeat {
   status: string;
   started_at: string;
   pid: number | null;
+}
+
+interface CollectorLog {
+  id: number;
+  level: string;
+  category: string;
+  message: string;
+  node_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 }
 
 const COMMANDS = [
@@ -56,6 +68,11 @@ export default function OpsPage() {
   const [heartbeat, setHeartbeat] = useState<CollectorHeartbeat | null>(null);
   const [sending, setSending] = useState<string | null>(null);
   const [confirmCmd, setConfirmCmd] = useState<string | null>(null);
+  const [logs, setLogs] = useState<CollectorLog[]>([]);
+  const [logFilter, setLogFilter] = useState<string>("all");
+  const [logLevel, setLogLevel] = useState<string>("all");
+  const [logSearch, setLogSearch] = useState<string>("");
+  const [logLimit, setLogLimit] = useState(100);
 
   const loadData = useCallback(async () => {
     const supabase = getSupabase();
@@ -99,6 +116,14 @@ export default function OpsPage() {
       .single();
     setHeartbeat(hbData);
 
+    // Load logs
+    const { data: logData } = await supabase
+      .from("collector_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    setLogs(logData ?? []);
+
     setLoading(false);
   }, []);
 
@@ -122,6 +147,14 @@ export default function OpsPage() {
         .order("created_at", { ascending: false })
         .limit(20);
       setCommands(cmdData ?? []);
+
+      // Refresh logs
+      const { data: logData } = await supabase
+        .from("collector_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      setLogs(logData ?? []);
     }, 15000);
 
     return () => clearInterval(interval);
@@ -389,6 +422,175 @@ export default function OpsPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Collector Logs */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-mono font-bold text-terminal-muted uppercase tracking-widest flex items-center gap-2">
+              <Terminal size={16} weight="bold" />
+              COLLECTOR LOGS
+            </h2>
+            <span className="text-[10px] font-mono text-terminal-muted">
+              auto-refresh 15s
+            </span>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <FunnelSimple size={14} weight="bold" className="text-terminal-muted" />
+            {/* Level filter */}
+            {(["all", "error", "warn", "info", "debug"] as const).map((lvl) => (
+              <button
+                key={lvl}
+                onClick={() => setLogLevel(lvl)}
+                className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border transition-colors ${
+                  logLevel === lvl
+                    ? lvl === "error"
+                      ? "border-terminal-red/40 text-terminal-red bg-terminal-red/10"
+                      : lvl === "warn"
+                      ? "border-terminal-amber/40 text-terminal-amber bg-terminal-amber/10"
+                      : "border-terminal-green/40 text-terminal-green bg-terminal-green/10"
+                    : "border-terminal-border text-terminal-muted hover:text-foreground"
+                }`}
+              >
+                {lvl}
+              </button>
+            ))}
+            <span className="text-terminal-border">|</span>
+            {/* Category filter */}
+            {(["all", "mqtt", "packet", "alert", "xp", "outbound", "message", "ops", "system"] as const).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setLogFilter(cat)}
+                className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border transition-colors ${
+                  logFilter === cat
+                    ? "border-terminal-green/40 text-terminal-green bg-terminal-green/10"
+                    : "border-terminal-border text-terminal-muted hover:text-foreground"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <input
+            type="text"
+            placeholder="Search logs... (node ID, message text)"
+            value={logSearch}
+            onChange={(e) => setLogSearch(e.target.value)}
+            className="w-full bg-black/30 border border-terminal-border rounded px-3 py-2 text-xs font-mono text-foreground placeholder:text-terminal-muted/50 mb-3 focus:outline-none focus:border-terminal-green/40"
+          />
+
+          {/* Log entries */}
+          <div className="panel overflow-hidden">
+            <div className="max-h-[600px] overflow-y-auto">
+              {(() => {
+                const searchLower = logSearch.toLowerCase();
+                const filtered = logs
+                  .filter((l) => logLevel === "all" || l.level === logLevel)
+                  .filter((l) => logFilter === "all" || l.category === logFilter)
+                  .filter(
+                    (l) =>
+                      !logSearch ||
+                      l.message.toLowerCase().includes(searchLower) ||
+                      (l.node_id && l.node_id.toLowerCase().includes(searchLower)) ||
+                      l.category.toLowerCase().includes(searchLower)
+                  )
+                  .slice(0, logLimit);
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-4 text-terminal-muted text-xs font-mono text-center">
+                      No logs found{logFilter !== "all" || logLevel !== "all" || logSearch ? " matching filters" : ""}.
+                    </div>
+                  );
+                }
+
+                return (
+                  <>
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-terminal-border text-terminal-muted text-[10px] uppercase tracking-widest font-mono sticky top-0 bg-[#181b22]">
+                          <th className="text-left p-2 w-[140px]">TIME</th>
+                          <th className="text-left p-2 w-[50px]">LVL</th>
+                          <th className="text-left p-2 w-[80px]">CAT</th>
+                          <th className="text-left p-2">MESSAGE</th>
+                          <th className="text-left p-2 w-[100px] hidden sm:table-cell">NODE</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((log) => (
+                          <tr
+                            key={log.id}
+                            className="border-b border-terminal-border/30 hover:bg-terminal-green/5 transition-colors group"
+                          >
+                            <td className="p-2 text-[11px] font-mono text-terminal-muted whitespace-nowrap">
+                              {format(new Date(log.created_at), "HH:mm:ss")}
+                              <span className="text-terminal-muted/50 ml-1 hidden sm:inline">
+                                {format(new Date(log.created_at), "MMM d")}
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              <span
+                                className={`text-[10px] font-mono font-bold uppercase ${
+                                  log.level === "error"
+                                    ? "text-terminal-red"
+                                    : log.level === "warn"
+                                    ? "text-terminal-amber"
+                                    : log.level === "debug"
+                                    ? "text-terminal-muted"
+                                    : "text-terminal-green"
+                                }`}
+                              >
+                                {log.level}
+                              </span>
+                            </td>
+                            <td className="p-2">
+                              <span className="text-[10px] font-mono text-terminal-dim uppercase">
+                                {log.category}
+                              </span>
+                            </td>
+                            <td className="p-2 text-xs font-mono text-foreground">
+                              <span className="break-all">{log.message}</span>
+                              {log.metadata && (
+                                <div className="text-[10px] text-terminal-muted mt-0.5 hidden group-hover:block">
+                                  {typeof log.metadata === "string"
+                                    ? log.metadata
+                                    : JSON.stringify(log.metadata)}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-2 text-[11px] font-mono text-terminal-muted hidden sm:table-cell">
+                              {log.node_id ? (
+                                <a
+                                  href={`/node/${encodeURIComponent(log.node_id)}`}
+                                  className="hover:text-terminal-green transition-colors"
+                                >
+                                  {log.node_id}
+                                </a>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {filtered.length >= logLimit && (
+                      <button
+                        onClick={() => setLogLimit((prev) => prev + 100)}
+                        className="w-full p-2 text-xs font-mono text-terminal-green hover:bg-terminal-green/5 transition-colors border-t border-terminal-border"
+                      >
+                        Load more...
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
         </div>
       </div>
     </main>

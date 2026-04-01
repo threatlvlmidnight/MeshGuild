@@ -466,3 +466,21 @@ class SupabaseWriter:
             self.client.table("ops_commands").update(update).eq("id", cmd_id).execute()
         except Exception as e:
             print(f"[ops] update error: {e}")
+
+    # --- Structured Logging ---
+
+    def log(self, level, category, message, node_id=None, metadata=None):
+        """Insert a structured log entry into collector_logs."""
+        try:
+            row = {
+                "level": level,
+                "category": category,
+                "message": message,
+            }
+            if node_id:
+                row["node_id"] = node_id
+            if metadata:
+                row["metadata"] = json.dumps(metadata)
+            self.client.table("collector_logs").insert(row).execute()
+        except Exception:
+            pass  # Don't let logging failures break the collector

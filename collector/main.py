@@ -41,8 +41,10 @@ def main():
             print("[collector] Connected to MQTT broker")
             client.subscribe(config.mqtt_topic)
             print(f"[collector] Subscribed to {config.mqtt_topic}")
+            writer.log("info", "mqtt", "Connected to MQTT broker and subscribed", metadata={"topic": config.mqtt_topic})
         else:
             print(f"[collector] Connection failed: {reason_code}")
+            writer.log("error", "mqtt", f"MQTT connection failed: {reason_code}")
 
     def on_message(client, userdata, msg):
         try:
@@ -58,11 +60,17 @@ def main():
 
             writer.upsert_node(packet)
             writer.insert_telemetry(packet)
+            writer.log("debug", "packet", f"{packet['packet_type']} from {packet['node_id']}", node_id=packet["node_id"], metadata={
+                "rssi": packet.get("rssi"),
+                "snr": packet.get("snr"),
+                "battery": packet.get("battery_level"),
+            })
 
             alerts = check_packet_alerts(packet)
             for alert in alerts:
                 print(f"[alert] {alert['alert_type']}: {alert['message']}")
                 writer.insert_alert(alert)
+                writer.log("warn", "alert", f"{alert['alert_type']}: {alert['message']}", node_id=alert.get("node_id"))
 
             # XP + achievements on every packet
             try:
@@ -70,11 +78,16 @@ def main():
                 achievement_engine.check_on_packet(packet["node_id"])
             except Exception as e:
                 print(f"[xp] error: {e}")
+                writer.log("error", "xp", f"XP award error: {e}", node_id=packet["node_id"])
 
             # Broadcast text messages to the dashboard via Supabase Realtime
             if packet.get("text"):
                 print(f"[mesh-msg] {packet['node_id']}: {packet['text'][:80]}")
                 writer.broadcast_message(packet)
+                writer.log("info", "message", f"Mesh message from {packet['node_id']}: {packet['text'][:120]}", node_id=packet["node_id"], metadata={
+                    "to": packet.get("to_node_id"),
+                    "channel": packet.get("channel_index"),
+                })
 
                 # Welcome bot: greet new nodes on first text message
                 node = writer.get_node(packet["node_id"])
@@ -95,6 +108,7 @@ def main():
 
         except Exception as e:
             print(f"[collector] Error processing message: {e}")
+            writer.log("error", "packet", f"Error processing message: {e}")
 
     def offline_checker():
         """Background thread: check for offline nodes every 60 seconds."""
@@ -108,8 +122,10 @@ def main():
                     print(f"[alert] {alert['alert_type']}: {alert['message']}")
                     writer.insert_alert(alert)
                     writer.mark_node_offline(alert["node_id"], now.isoformat())
+                    writer.log("warn", "alert", f"Node going dark: {alert['node_id']}", node_id=alert["node_id"])
             except Exception as e:
                 print(f"[collector] Offline check error: {e}")
+                writer.log("error", "system", f"Offline check error: {e}")
 
     # Start offline checker thread
     checker = threading.Thread(target=offline_checker, daemon=True)
@@ -124,8 +140,10 @@ def main():
                 xp_engine.check_streaks()
                 achievement_engine.check_night_watch()
                 writer.recompute_all_stats()
+                writer.log("info", "system", "Hourly stats + XP recompute completed")
             except Exception as e:
                 print(f"[collector] Hourly loop error: {e}")
+                writer.log("error", "system", f"Hourly loop error: {e}")
 
     stats_timer = threading.Thread(target=hourly_stats_loop, daemon=True)
     stats_timer.start()
@@ -176,10 +194,17 @@ def main():
                     topic = config.mqtt_publish_topic
                     mc.publish(topic, json.dumps(payload))
                     print(f"[outbound] sent via {topic}: from={from_decimal} ch={row.get('channel_index', 0)} to={payload.get('to', 'broadcast')} | {row['content'][:80]}")
+                    writer.log("info", "outbound", f"Sent message: {row['content'][:120]}", metadata={
+                        "from": from_decimal,
+                        "to": payload.get("to", "broadcast"),
+                        "channel": row.get("channel_index", 0),
+                        "topic": topic,
+                    })
                     writer.delete_outbound(row["id"])
 
             except Exception as e:
                 print(f"[outbound] poll error: {e}")
+                writer.log("error", "outbound", f"Outbound poll error: {e}")
 
     outbound_timer = threading.Thread(target=outbound_poll_loop, daemon=True)
     outbound_timer.start()
@@ -207,6 +232,7 @@ def main():
 
                     if cmd_type == "REBOOT_COLLECTOR":
                         writer.update_ops_command(cmd_id, "executing", "Restarting collector...")
+                        writer.log("warn", "ops", "REBOOT_COLLECTOR command received — restarting")
                         print("[ops] REBOOT_COLLECTOR — exiting with code 42 for wrapper restart")
                         writer.update_ops_command(cmd_id, "completed", "Collector restarted")
                         os._exit(42)
@@ -237,6 +263,15 @@ def main():
 
     ops_timer = threading.Thread(target=ops_command_loop, daemon=True)
     ops_timer.start()
+
+    # Log startup
+    writer.log("info", "system", "Collector starting", metadata={
+        "mqtt_host": config.mqtt_host,
+        "mqtt_port": config.mqtt_port,
+        "gateway": config.gateway_node_id,
+        "network": config.network_id,
+        "pid": os.getpid(),
+    })
 
     # Connect MQTT
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
