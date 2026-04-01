@@ -110,6 +110,16 @@ export interface PlayerCommendation {
   created_at: string;
 }
 
+export interface PlayerBadge {
+  id: number;
+  player_id: string;
+  badge_key: string;
+  badge_label: string;
+  awarded_at: string;
+  awarded_by: string | null;
+  note: string | null;
+}
+
 export interface MeshMessage {
   id: string;
   node_id: string;

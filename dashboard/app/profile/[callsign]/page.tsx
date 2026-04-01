@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { getSupabase, Profile, Node, NodeOwnership, PlayerCommendation, getRankForRole } from "@/lib/supabase";
+import { getSupabase, Profile, Node, NodeOwnership, PlayerCommendation, PlayerBadge, getRankForRole } from "@/lib/supabase";
 import { format } from "date-fns";
 import { ArrowLeft, UserCircle, WifiHigh, WifiSlash } from "@phosphor-icons/react";
+import { BadgeArt } from "@/components/badge-art";
 
 interface OwnedNode {
   ownership: NodeOwnership;
@@ -39,6 +40,7 @@ export default function ProfilePage() {
   const [commendationNote, setCommendationNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [playerBadges, setPlayerBadges] = useState<PlayerBadge[]>([]);
 
   async function loadCommendations(client: ReturnType<typeof getSupabase>, profileId: string) {
     const { data, error } = await client
@@ -112,7 +114,15 @@ export default function ProfilePage() {
         setOwnedNodes(merged);
       }
 
-      await loadCommendations(client, prof.id);
+      await Promise.all([
+        loadCommendations(client, prof.id),
+        client
+          .from("player_badges")
+          .select("*")
+          .eq("player_id", prof.id)
+          .order("awarded_at", { ascending: false })
+          .then(({ data }) => setPlayerBadges(data ?? [])),
+      ]);
       setLoading(false);
     }
 
@@ -142,6 +152,7 @@ export default function ProfilePage() {
 
   const rankInfo = getRankForRole(profile.role, profile.renown);
   const commendationCount = commendations.length;
+  const earnedCommendationTypes = new Set(commendations.map((c) => c.commendation_type));
   const awardedByViewer = new Set(
     commendations
       .filter((commendation) => commendation.from_player_id === viewerId)
@@ -278,6 +289,28 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Citations & Decorations */}
+        {(playerBadges.length > 0 || earnedCommendationTypes.size > 0) && (
+          <div className="panel p-4 mb-6">
+            <div className="text-[10px] font-mono font-bold text-terminal-muted uppercase tracking-widest mb-4">
+              Citations &amp; Decorations
+            </div>
+            <div className="flex flex-wrap gap-5">
+              {playerBadges.map((badge) => (
+                <BadgeArt
+                  key={badge.id}
+                  badgeKey={badge.badge_key}
+                  size="lg"
+                  showLabel
+                />
+              ))}
+              {Array.from(earnedCommendationTypes).map((type) => (
+                <BadgeArt key={type} badgeKey={type} size="md" showLabel />
+              ))}
+            </div>
+          </div>
+        )}
 
         {!isOwnProfile && viewerId && (
           <div className="panel p-4 mb-6">

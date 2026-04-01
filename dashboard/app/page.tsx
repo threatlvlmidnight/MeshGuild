@@ -9,6 +9,7 @@ import { LevelBadge } from "@/components/level-badge";
 import { Broadcast, Warning, WifiHigh, WifiSlash, Lightning, BookOpen } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import type { User } from "@supabase/supabase-js";
+import { BadgeArt } from "@/components/badge-art";
 
 // --- Color helpers ---
 
@@ -308,6 +309,58 @@ function AlertsBanner({ alerts }: { alerts: Alert[] }) {
   );
 }
 
+// --- Commendation feed ---
+
+interface CommendFeedItem {
+  id: number;
+  commendation_type: string;
+  created_at: string;
+  to_player_id: string;
+  from_player_id: string;
+  toCallsign: string;
+  fromCallsign: string;
+}
+
+function CommendFeed({ items }: { items: CommendFeedItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="panel p-4 mt-8">
+      <div className="text-[10px] font-mono font-bold text-terminal-muted uppercase tracking-widest mb-3">
+        ◈ Guild Signal Activity
+      </div>
+      <div className="space-y-2.5">
+        {items.map((item) => (
+          <div key={item.id} className="flex items-center gap-2.5 min-w-0">
+            <BadgeArt badgeKey={item.commendation_type} size="sm" />
+            <div className="flex-1 min-w-0 text-[11px] font-mono text-terminal-muted leading-snug">
+              <Link
+                href={`/profile/${encodeURIComponent(item.fromCallsign)}`}
+                className="text-foreground hover:text-terminal-green transition-colors"
+              >
+                {item.fromCallsign}
+              </Link>
+              {" awarded "}
+              <span className="text-terminal-gold">
+                {item.commendation_type.replaceAll("_", " ")}
+              </span>
+              {" to "}
+              <Link
+                href={`/profile/${encodeURIComponent(item.toCallsign)}`}
+                className="text-foreground hover:text-terminal-green transition-colors"
+              >
+                {item.toCallsign}
+              </Link>
+            </div>
+            <div className="text-terminal-muted/50 text-[10px] font-mono shrink-0">
+              {formatDistanceToNow(new Date(item.created_at), { addSuffix: false })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // --- Public Landing Page ---
 
 function LandingPage({ stats }: { stats: { totalNodes: number; onlineNodes: number; totalOperators: number } }) {
@@ -426,6 +479,7 @@ export default function Home() {
   const [xpRates, setXpRates] = useState<Record<string, number>>({});
   const [demoMode, setDemoMode] = useState(false);
   const [rolePreview, setRolePreview] = useState<"live" | "member" | "elder" | "leader">("live");
+  const [commendFeed, setCommendFeed] = useState<CommendFeedItem[]>([]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -486,6 +540,35 @@ export default function Home() {
           rates[row.node_id] = (rates[row.node_id] || 0) + row.xp_awarded;
         }
         setXpRates(rates);
+
+        // Commendation feed (last 6 guild-wide)
+        const { data: feedRaw } = await client
+          .from("player_commendations")
+          .select("id, commendation_type, created_at, to_player_id, from_player_id")
+          .order("created_at", { ascending: false })
+          .limit(6);
+        if (feedRaw && feedRaw.length > 0) {
+          const feedIds = Array.from(
+            new Set([
+              ...feedRaw.map((f) => f.to_player_id),
+              ...feedRaw.map((f) => f.from_player_id),
+            ])
+          );
+          const { data: feedProfiles } = await client
+            .from("profiles")
+            .select("id, callsign")
+            .in("id", feedIds);
+          const callsignById = new Map(
+            (feedProfiles ?? []).map((p) => [p.id, p.callsign])
+          );
+          setCommendFeed(
+            feedRaw.map((f) => ({
+              ...f,
+              toCallsign: callsignById.get(f.to_player_id) ?? "Unknown",
+              fromCallsign: callsignById.get(f.from_player_id) ?? "Unknown",
+            }))
+          );
+        }
       }
 
       setLoading(false);
@@ -530,9 +613,47 @@ export default function Home() {
       )
       .subscribe();
 
+    const commendChannel = client
+      .channel("commend-feed-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "player_commendations" },
+        async () => {
+          const { data: feedRaw } = await client
+            .from("player_commendations")
+            .select("id, commendation_type, created_at, to_player_id, from_player_id")
+            .order("created_at", { ascending: false })
+            .limit(6);
+          if (feedRaw && feedRaw.length > 0) {
+            const feedIds = Array.from(
+              new Set([
+                ...feedRaw.map((f) => f.to_player_id),
+                ...feedRaw.map((f) => f.from_player_id),
+              ])
+            );
+            const { data: feedProfiles } = await client
+              .from("profiles")
+              .select("id, callsign")
+              .in("id", feedIds);
+            const callsignById = new Map(
+              (feedProfiles ?? []).map((p) => [p.id, p.callsign])
+            );
+            setCommendFeed(
+              feedRaw.map((f) => ({
+                ...f,
+                toCallsign: callsignById.get(f.to_player_id) ?? "Unknown",
+                fromCallsign: callsignById.get(f.from_player_id) ?? "Unknown",
+              }))
+            );
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       client.removeChannel(nodeChannel);
       client.removeChannel(alertChannel);
+      client.removeChannel(commendChannel);
     };
   }, []);
 
@@ -669,6 +790,8 @@ export default function Home() {
             ))}
           </div>
         )}
+
+        <CommendFeed items={commendFeed} />
       </div>
     </main>
   );
