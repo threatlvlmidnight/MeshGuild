@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getSupabase, Profile, getRankForRole } from "@/lib/supabase";
-import { SignOut, Shield, UserCircle, ChatText, Radio, Wrench, GearSix, Check } from "@phosphor-icons/react";
+import { SignOut, Shield, UserCircle, ChatText, Radio, Wrench, GearSix, Check, UsersThree } from "@phosphor-icons/react";
 import type { User } from "@supabase/supabase-js";
 
 type RolePreview = "live" | "member" | "elder" | "leader";
@@ -145,6 +145,14 @@ export default function AuthNav() {
       >
         <ChatText size={14} weight="bold" />
         <span className="hidden sm:inline">SHELL</span>
+      </Link>
+      <Link
+        href="/leaderboard"
+        className="flex items-center gap-1 text-xs font-mono text-terminal-dim hover:text-terminal-green transition-colors"
+        title="Guild Registry"
+      >
+        <UsersThree size={14} weight="bold" />
+        <span className="hidden sm:inline">REG</span>
       </Link>
       {isOfficer && (
         <Link

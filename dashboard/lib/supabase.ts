@@ -100,6 +100,16 @@ export interface Card {
   earned_at: string;
 }
 
+export interface PlayerCommendation {
+  id: number;
+  from_player_id: string;
+  to_player_id: string;
+  commendation_type: string;
+  note: string | null;
+  influence_value: number;
+  created_at: string;
+}
+
 export interface MeshMessage {
   id: string;
   node_id: string;
