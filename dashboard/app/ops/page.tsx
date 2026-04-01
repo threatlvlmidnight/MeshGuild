@@ -14,6 +14,8 @@ import {
   Clock,
   Terminal,
   FunnelSimple,
+  ArrowDown,
+  ArrowUp,
 } from "@phosphor-icons/react";
 import { formatDistanceToNow, format } from "date-fns";
 
@@ -45,6 +47,17 @@ interface CollectorLog {
   created_at: string;
 }
 
+interface MessageVector {
+  id: number;
+  direction: string;
+  from_node_id: string | null;
+  to_node_id: string | null;
+  channel_index: number;
+  network_id: string;
+  player_id: string | null;
+  created_at: string;
+}
+
 const COMMANDS = [
   {
     id: "REBOOT_COLLECTOR",
@@ -73,6 +86,9 @@ export default function OpsPage() {
   const [logLevel, setLogLevel] = useState<string>("all");
   const [logSearch, setLogSearch] = useState<string>("");
   const [logLimit, setLogLimit] = useState(100);
+  const [vectors, setVectors] = useState<MessageVector[]>([]);
+  const [vectorDir, setVectorDir] = useState<string>("all");
+  const [vectorNode, setVectorNode] = useState<string>("");
 
   const loadData = useCallback(async () => {
     const supabase = getSupabase();
@@ -124,6 +140,14 @@ export default function OpsPage() {
       .limit(200);
     setLogs(logData ?? []);
 
+    // Load message vectors
+    const { data: vecData } = await supabase
+      .from("message_vectors")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    setVectors(vecData ?? []);
+
     setLoading(false);
   }, []);
 
@@ -155,6 +179,14 @@ export default function OpsPage() {
         .order("created_at", { ascending: false })
         .limit(200);
       setLogs(logData ?? []);
+
+      // Refresh vectors
+      const { data: vecData } = await supabase
+        .from("message_vectors")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      setVectors(vecData ?? []);
     }, 15000);
 
     return () => clearInterval(interval);
@@ -586,6 +618,150 @@ export default function OpsPage() {
                         Load more...
                       </button>
                     )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+
+        {/* Message Traffic (Vectors) */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-mono font-bold text-terminal-muted uppercase tracking-widest flex items-center gap-2">
+              <ArrowUp size={14} weight="bold" className="text-terminal-amber" />
+              <ArrowDown size={14} weight="bold" className="text-terminal-green" />
+              MESSAGE TRAFFIC
+            </h2>
+            <span className="text-[10px] font-mono text-terminal-muted">
+              vectors only &mdash; no content logged
+            </span>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <FunnelSimple size={14} weight="bold" className="text-terminal-muted" />
+            {(["all", "inbound", "outbound"] as const).map((dir) => (
+              <button
+                key={dir}
+                onClick={() => setVectorDir(dir)}
+                className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border transition-colors ${
+                  vectorDir === dir
+                    ? dir === "inbound"
+                      ? "border-terminal-green/40 text-terminal-green bg-terminal-green/10"
+                      : dir === "outbound"
+                      ? "border-terminal-amber/40 text-terminal-amber bg-terminal-amber/10"
+                      : "border-terminal-green/40 text-terminal-green bg-terminal-green/10"
+                    : "border-terminal-border text-terminal-muted hover:text-foreground"
+                }`}
+              >
+                {dir}
+              </button>
+            ))}
+            <input
+              type="text"
+              placeholder="Filter by node ID..."
+              value={vectorNode}
+              onChange={(e) => setVectorNode(e.target.value)}
+              className="bg-black/30 border border-terminal-border rounded px-2 py-1 text-[11px] font-mono text-foreground placeholder:text-terminal-muted/50 w-40 focus:outline-none focus:border-terminal-green/40"
+            />
+          </div>
+
+          <div className="panel overflow-hidden">
+            <div className="max-h-[400px] overflow-y-auto">
+              {(() => {
+                const nodeLower = vectorNode.toLowerCase();
+                const filtered = vectors
+                  .filter((v) => vectorDir === "all" || v.direction === vectorDir)
+                  .filter(
+                    (v) =>
+                      !vectorNode ||
+                      (v.from_node_id && v.from_node_id.toLowerCase().includes(nodeLower)) ||
+                      (v.to_node_id && v.to_node_id.toLowerCase().includes(nodeLower))
+                  );
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-4 text-terminal-muted text-xs font-mono text-center">
+                      No message traffic recorded yet.
+                    </div>
+                  );
+                }
+
+                // Compute summary stats
+                const inCount = filtered.filter((v) => v.direction === "inbound").length;
+                const outCount = filtered.filter((v) => v.direction === "outbound").length;
+                const dmCount = filtered.filter((v) => v.to_node_id !== null).length;
+
+                return (
+                  <>
+                    {/* Summary bar */}
+                    <div className="flex items-center gap-4 px-3 py-2 border-b border-terminal-border bg-black/20 text-[10px] font-mono">
+                      <span className="text-terminal-green">{inCount} IN</span>
+                      <span className="text-terminal-amber">{outCount} OUT</span>
+                      <span className="text-terminal-muted">{dmCount} DM</span>
+                      <span className="text-terminal-muted">{filtered.length} total</span>
+                    </div>
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-terminal-border text-terminal-muted text-[10px] uppercase tracking-widest font-mono sticky top-0 bg-[#181b22]">
+                          <th className="text-left p-2 w-[130px]">TIME</th>
+                          <th className="text-center p-2 w-[50px]">DIR</th>
+                          <th className="text-left p-2">FROM</th>
+                          <th className="text-left p-2">TO</th>
+                          <th className="text-center p-2 w-[50px]">CH</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((v) => (
+                          <tr
+                            key={v.id}
+                            className="border-b border-terminal-border/30 hover:bg-terminal-green/5 transition-colors"
+                          >
+                            <td className="p-2 text-[11px] font-mono text-terminal-muted whitespace-nowrap">
+                              {format(new Date(v.created_at), "HH:mm:ss")}
+                              <span className="text-terminal-muted/50 ml-1 hidden sm:inline">
+                                {format(new Date(v.created_at), "MMM d")}
+                              </span>
+                            </td>
+                            <td className="p-2 text-center">
+                              {v.direction === "inbound" ? (
+                                <ArrowDown size={14} weight="bold" className="text-terminal-green inline" />
+                              ) : (
+                                <ArrowUp size={14} weight="bold" className="text-terminal-amber inline" />
+                              )}
+                            </td>
+                            <td className="p-2 text-xs font-mono">
+                              {v.from_node_id ? (
+                                <a
+                                  href={`/node/${encodeURIComponent(v.from_node_id)}`}
+                                  className="text-foreground hover:text-terminal-green transition-colors"
+                                >
+                                  {v.from_node_id}
+                                </a>
+                              ) : (
+                                <span className="text-terminal-muted">--</span>
+                              )}
+                            </td>
+                            <td className="p-2 text-xs font-mono">
+                              {v.to_node_id ? (
+                                <a
+                                  href={`/node/${encodeURIComponent(v.to_node_id)}`}
+                                  className="text-foreground hover:text-terminal-green transition-colors"
+                                >
+                                  {v.to_node_id}
+                                </a>
+                              ) : (
+                                <span className="text-terminal-dim text-[10px]">BROADCAST</span>
+                              )}
+                            </td>
+                            <td className="p-2 text-center text-xs font-mono text-terminal-muted">
+                              {v.channel_index}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </>
                 );
               })()}

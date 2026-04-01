@@ -484,3 +484,22 @@ class SupabaseWriter:
             self.client.table("collector_logs").insert(row).execute()
         except Exception:
             pass  # Don't let logging failures break the collector
+
+    def log_message_vector(self, direction, from_node_id=None, to_node_id=None,
+                           channel_index=0, player_id=None):
+        """Log a message vector (routing info only, no content)."""
+        try:
+            row = {
+                "direction": direction,
+                "channel_index": channel_index,
+                "network_id": self.network_id,
+            }
+            if from_node_id:
+                row["from_node_id"] = from_node_id
+            if to_node_id:
+                row["to_node_id"] = to_node_id
+            if player_id:
+                row["player_id"] = player_id
+            self.client.table("message_vectors").insert(row).execute()
+        except Exception:
+            pass

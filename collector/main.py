@@ -88,6 +88,12 @@ def main():
                     "to": packet.get("to_node_id"),
                     "channel": packet.get("channel_index"),
                 })
+                writer.log_message_vector(
+                    direction="inbound",
+                    from_node_id=packet["node_id"],
+                    to_node_id=packet.get("to_node_id"),
+                    channel_index=packet.get("channel_index", 0),
+                )
 
                 # Welcome bot: greet new nodes on first text message
                 node = writer.get_node(packet["node_id"])
@@ -200,6 +206,13 @@ def main():
                         "channel": row.get("channel_index", 0),
                         "topic": topic,
                     })
+                    writer.log_message_vector(
+                        direction="outbound",
+                        from_node_id=row.get("from_node_id"),
+                        to_node_id=row.get("to_node_id"),
+                        channel_index=row.get("channel_index", 0),
+                        player_id=row.get("player_id"),
+                    )
                     writer.delete_outbound(row["id"])
 
             except Exception as e:
