@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS collector_logs (
 );
 
 -- Index for fast time-range + category queries from the dashboard
-CREATE INDEX idx_collector_logs_created ON collector_logs(created_at DESC);
-CREATE INDEX idx_collector_logs_category ON collector_logs(category, created_at DESC);
-CREATE INDEX idx_collector_logs_level ON collector_logs(level, created_at DESC);
-CREATE INDEX idx_collector_logs_node ON collector_logs(node_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collector_logs_created ON collector_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collector_logs_category ON collector_logs(category, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collector_logs_level ON collector_logs(level, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collector_logs_node ON collector_logs(node_id, created_at DESC);
 
 -- Auto-prune logs older than 7 days (run via pg_cron or manually)
 -- DELETE FROM collector_logs WHERE created_at < NOW() - INTERVAL '7 days';

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import { getSupabase, MeshMessage } from "@/lib/supabase";
 import { loadMessages, appendMessage, clearMessages } from "@/lib/message-store";
 import AuthNav from "@/components/auth-nav";
-import { ChatText, PaperPlaneTilt, Trash, Hash, ChatsCircle, Terminal, CaretDown } from "@phosphor-icons/react";
+import { ChatText, PaperPlaneTilt, Trash, Hash, ChatsCircle, Terminal, CaretDown, ArrowLeft } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import type { User } from "@supabase/supabase-js";
@@ -211,9 +212,19 @@ export default function MessagesPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground flex flex-col">
-      <AuthNav />
+      {/* Top nav bar */}
+      <nav className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-terminal-border bg-terminal-panel/30">
+        <Link
+          href="/"
+          className="flex items-center gap-1.5 text-xs font-mono text-terminal-muted hover:text-terminal-green transition-colors"
+        >
+          <ArrowLeft size={14} weight="bold" />
+          <span className="hidden sm:inline">DASHBOARD</span>
+        </Link>
+        <AuthNav />
+      </nav>
 
-      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 pt-4 pb-3 min-h-0" style={{ height: "calc(100vh - 56px)" }}>
+      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 pt-4 pb-3 min-h-0" style={{ height: "calc(100vh - 48px)" }}>
         {/* Header */}
         <div className="flex items-center justify-between mb-3 flex-shrink-0">
           <div className="flex items-center gap-3">
