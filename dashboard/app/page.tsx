@@ -33,12 +33,232 @@ function batteryColor(level: number | null): string {
   return "text-terminal-red";
 }
 
+const DEMO_NODES: Node[] = [
+  {
+    id: "demo-northwatch",
+    short_name: "NW-01",
+    long_name: "Northwatch Relay",
+    last_seen: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+    rssi: -92,
+    snr: 9.4,
+    battery_level: 87,
+    is_online: true,
+    xp_total: 18420,
+    level: 5,
+    created_at: new Date().toISOString(),
+    packets_total: 4821,
+    packets_24h: 316,
+    packets_7d: 1804,
+    uptime_pct: 99,
+    avg_rssi: -95,
+    best_rssi: -88,
+    avg_snr: 8.7,
+    best_snr: 12.1,
+    battery_min: 82,
+    offline_count: 0,
+    longest_streak_days: 21,
+    current_streak_days: 21,
+  },
+  {
+    id: "demo-harbor",
+    short_name: "HB-12",
+    long_name: "Harbor Beacon",
+    last_seen: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    rssi: -101,
+    snr: 4.1,
+    battery_level: 61,
+    is_online: true,
+    xp_total: 9320,
+    level: 4,
+    created_at: new Date().toISOString(),
+    packets_total: 2604,
+    packets_24h: 184,
+    packets_7d: 1126,
+    uptime_pct: 96,
+    avg_rssi: -103,
+    best_rssi: -97,
+    avg_snr: 3.8,
+    best_snr: 6.2,
+    battery_min: 54,
+    offline_count: 1,
+    longest_streak_days: 13,
+    current_streak_days: 13,
+  },
+  {
+    id: "demo-ridgeback",
+    short_name: "RB-07",
+    long_name: "Ridgeback Link",
+    last_seen: new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+    rssi: -97,
+    snr: 6.8,
+    battery_level: null,
+    is_online: true,
+    xp_total: 24750,
+    level: 5,
+    created_at: new Date().toISOString(),
+    packets_total: 7310,
+    packets_24h: 402,
+    packets_7d: 2217,
+    uptime_pct: 97,
+    avg_rssi: -99,
+    best_rssi: -91,
+    avg_snr: 6.1,
+    best_snr: 9.8,
+    battery_min: null,
+    offline_count: 2,
+    longest_streak_days: 29,
+    current_streak_days: 9,
+  },
+  {
+    id: "demo-prairie",
+    short_name: "PR-03",
+    long_name: "Prairie Lantern",
+    last_seen: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    rssi: -115,
+    snr: -16,
+    battery_level: 18,
+    is_online: false,
+    xp_total: 4110,
+    level: 3,
+    created_at: new Date().toISOString(),
+    packets_total: 1198,
+    packets_24h: 23,
+    packets_7d: 266,
+    uptime_pct: 78,
+    avg_rssi: -111,
+    best_rssi: -104,
+    avg_snr: -11.2,
+    best_snr: -3.5,
+    battery_min: 14,
+    offline_count: 6,
+    longest_streak_days: 7,
+    current_streak_days: 0,
+  },
+  {
+    id: "demo-stormglass",
+    short_name: "SG-99",
+    long_name: "Stormglass Repeater",
+    last_seen: new Date(Date.now() - 45 * 1000).toISOString(),
+    rssi: -89,
+    snr: 10.9,
+    battery_level: 92,
+    is_online: true,
+    xp_total: 38200,
+    level: 6,
+    created_at: new Date().toISOString(),
+    packets_total: 10144,
+    packets_24h: 611,
+    packets_7d: 3488,
+    uptime_pct: 100,
+    avg_rssi: -91,
+    best_rssi: -85,
+    avg_snr: 9.7,
+    best_snr: 13.4,
+    battery_min: 89,
+    offline_count: 0,
+    longest_streak_days: 44,
+    current_streak_days: 44,
+  },
+];
+
+const DEMO_XP_RATES: Record<string, number> = {
+  "demo-northwatch": 18,
+  "demo-harbor": 8,
+  "demo-ridgeback": 22,
+  "demo-prairie": 0,
+  "demo-stormglass": 41,
+};
+
 // --- Node card ---
 
-function NodeCard({ node, index, xpPerHour }: { node: Node; index: number; xpPerHour: number }) {
+function NodeCard({ node, index, xpPerHour, isDemo = false }: { node: Node; index: number; xpPerHour: number; isDemo?: boolean }) {
   const lastSeen = node.last_seen
     ? formatDistanceToNow(new Date(node.last_seen), { addSuffix: true })
     : "never";
+
+  const card = (
+    <div className={`panel p-4 flex flex-col gap-3 transition-colors ${isDemo ? "border-terminal-dim/30 bg-terminal-panel/70" : "hover:border-terminal-green/30"}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {node.is_online ? (
+            <WifiHigh size={16} weight="bold" className="text-terminal-green" />
+          ) : (
+            <WifiSlash size={16} weight="bold" className="text-terminal-red" />
+          )}
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="text-foreground font-mono font-semibold text-sm group-hover:text-terminal-green transition-colors">
+                {node.long_name ?? node.id}
+              </div>
+              {isDemo && (
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border border-terminal-dim/30 text-terminal-dim bg-terminal-dim/5">
+                  DEMO
+                </span>
+              )}
+            </div>
+            {node.short_name && (
+              <div className="text-terminal-muted text-xs font-mono">{node.short_name}</div>
+            )}
+          </div>
+        </div>
+        <span
+          className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+            node.is_online
+              ? "border-terminal-green/30 text-terminal-green bg-terminal-green/5"
+              : "border-terminal-red/30 text-terminal-red bg-terminal-red/5"
+          }`}
+        >
+          {node.is_online ? "ONLINE" : "DARK"}
+        </span>
+      </div>
+
+      <div className="text-terminal-muted text-xs font-mono">
+        Last signal {lastSeen}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-xs border-t border-terminal-border pt-3">
+        <div>
+          <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">RSSI</div>
+          <div className={`font-mono font-bold ${rssiColor(node.rssi)}`}>
+            {node.rssi !== null ? `${node.rssi}` : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">SNR</div>
+          <div className={`font-mono font-bold ${snrColor(node.snr)}`}>
+            {node.snr !== null ? `${node.snr}` : "—"}
+          </div>
+        </div>
+        {node.battery_level !== null ? (
+          <div>
+            <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">BAT</div>
+            <div className={`font-mono font-bold ${batteryColor(node.battery_level)}`}>
+              {node.battery_level}%
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">UP</div>
+            <div className="font-mono font-bold text-terminal-muted">
+              {node.uptime_pct !== null ? `${node.uptime_pct}%` : "—"}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between border-t border-terminal-border pt-2">
+        <LevelBadge xp={node.xp_total ?? 0} />
+        <div className="text-right">
+          <span className="text-terminal-muted text-xs font-mono">
+            {(node.xp_total ?? 0).toLocaleString()} RN
+          </span>
+          {xpPerHour > 0 && (
+            <div className="text-terminal-green text-[10px] font-mono">+{xpPerHour}/hr</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <motion.div
@@ -46,83 +266,13 @@ function NodeCard({ node, index, xpPerHour }: { node: Node; index: number; xpPer
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.3 }}
     >
-      <Link href={`/node/${encodeURIComponent(node.id)}`} className="block group">
-        <div className="panel p-4 flex flex-col gap-3 hover:border-terminal-green/30 transition-colors">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {node.is_online ? (
-                <WifiHigh size={16} weight="bold" className="text-terminal-green" />
-              ) : (
-                <WifiSlash size={16} weight="bold" className="text-terminal-red" />
-              )}
-              <div>
-                <div className="text-foreground font-mono font-semibold text-sm group-hover:text-terminal-green transition-colors">
-                  {node.long_name ?? node.id}
-                </div>
-                {node.short_name && (
-                  <div className="text-terminal-muted text-xs font-mono">{node.short_name}</div>
-                )}
-              </div>
-            </div>
-            <span
-              className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                node.is_online
-                  ? "border-terminal-green/30 text-terminal-green bg-terminal-green/5"
-                  : "border-terminal-red/30 text-terminal-red bg-terminal-red/5"
-              }`}
-            >
-              {node.is_online ? "ONLINE" : "DARK"}
-            </span>
-          </div>
-
-          <div className="text-terminal-muted text-xs font-mono">
-            Last signal {lastSeen}
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-xs border-t border-terminal-border pt-3">
-            <div>
-              <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">RSSI</div>
-              <div className={`font-mono font-bold ${rssiColor(node.rssi)}`}>
-                {node.rssi !== null ? `${node.rssi}` : "—"}
-              </div>
-            </div>
-            <div>
-              <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">SNR</div>
-              <div className={`font-mono font-bold ${snrColor(node.snr)}`}>
-                {node.snr !== null ? `${node.snr}` : "—"}
-              </div>
-            </div>
-            {node.battery_level !== null ? (
-              <div>
-                <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">BAT</div>
-                <div className={`font-mono font-bold ${batteryColor(node.battery_level)}`}>
-                  {node.battery_level}%
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className="text-terminal-muted uppercase tracking-widest text-[10px] mb-0.5">UP</div>
-                <div className="font-mono font-bold text-terminal-muted">
-                  {node.uptime_pct !== null ? `${node.uptime_pct}%` : "—"}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Level badge */}
-          <div className="flex items-center justify-between border-t border-terminal-border pt-2">
-            <LevelBadge xp={node.xp_total ?? 0} />
-            <div className="text-right">
-              <span className="text-terminal-muted text-xs font-mono">
-                {(node.xp_total ?? 0).toLocaleString()} RN
-              </span>
-              {xpPerHour > 0 && (
-                <div className="text-terminal-green text-[10px] font-mono">+{xpPerHour}/hr</div>
-              )}
-            </div>
-          </div>
-        </div>
-      </Link>
+      {isDemo ? (
+        <div className="group cursor-default">{card}</div>
+      ) : (
+        <Link href={`/node/${encodeURIComponent(node.id)}`} className="block group">
+          {card}
+        </Link>
+      )}
     </motion.div>
   );
 }
@@ -274,6 +424,17 @@ export default function Home() {
   const [operatorCount, setOperatorCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [xpRates, setXpRates] = useState<Record<string, number>>({});
+  const [demoMode, setDemoMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setDemoMode(window.localStorage.getItem("meshguild-demo-nodes") === "true");
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("meshguild-demo-nodes", demoMode ? "true" : "false");
+  }, [demoMode]);
 
   useEffect(() => {
     const client = getSupabase();
@@ -361,7 +522,11 @@ export default function Home() {
     };
   }, []);
 
-  const onlineCount = nodes.filter((n) => n.is_online).length;
+  const displayNodes = [...(demoMode ? [...nodes, ...DEMO_NODES] : nodes)].sort((a, b) =>
+    (a.long_name ?? a.id).localeCompare(b.long_name ?? b.id)
+  );
+  const displayXpRates = demoMode ? { ...DEMO_XP_RATES, ...xpRates } : xpRates;
+  const onlineCount = displayNodes.filter((n) => n.is_online).length;
 
   // Loading state
   if (user === undefined || loading) {
@@ -392,17 +557,28 @@ export default function Home() {
     <main className="min-h-screen p-4 sm:p-6">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold font-mono text-terminal-green glow-green tracking-tight">
               THE SIGNAL
             </h1>
             <p className="text-terminal-muted text-xs font-mono mt-1">
               <Broadcast size={12} weight="bold" className="inline mr-1" />
-              MESH NETWORK OPERATIONS — {nodes.length} NODES TRACKED
+              MESH NETWORK OPERATIONS — {displayNodes.length} NODES TRACKED
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <button
+              onClick={() => setDemoMode((prev) => !prev)}
+              className={`text-xs font-mono px-2.5 py-1 rounded border transition-colors ${
+                demoMode
+                  ? "border-terminal-dim/40 text-terminal-dim bg-terminal-dim/10"
+                  : "border-terminal-border text-terminal-muted hover:text-terminal-dim hover:border-terminal-dim/30"
+              }`}
+              title="Toggle simulated nodes for demos"
+            >
+              {demoMode ? "[ DEMO NODES: ON ]" : "[ DEMO NODES ]"}
+            </button>
             <Link
               href="/leaderboard"
               className="text-xs font-mono text-terminal-dim hover:text-terminal-green transition-colors hidden sm:inline"
@@ -414,8 +590,8 @@ export default function Home() {
         </div>
 
         {/* Guild Health Score */}
-        {nodes.length > 0 && (() => {
-          const score = Math.round((onlineCount / nodes.length) * 100);
+        {displayNodes.length > 0 && (() => {
+          const score = Math.round((onlineCount / displayNodes.length) * 100);
           let rank: string;
           let colorClass: string;
           if (score >= 90) { rank = "BATTLE READY"; colorClass = "text-terminal-green border-terminal-green/30 bg-terminal-green/5"; }
@@ -428,7 +604,7 @@ export default function Home() {
               <div className="flex items-center gap-3">
                 <span className="text-lg font-bold">{score}%</span>
                 <span className="text-xs font-bold tracking-wider">{rank}</span>
-                <span className="text-xs opacity-60">{onlineCount}/{nodes.length}</span>
+                <span className="text-xs opacity-60">{onlineCount}/{displayNodes.length}</span>
               </div>
             </div>
           );
@@ -436,18 +612,35 @@ export default function Home() {
 
         <AlertsBanner alerts={alerts} />
 
+        {demoMode && (
+          <div className="border border-terminal-dim/30 bg-terminal-dim/5 rounded-lg p-3 mb-6">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-terminal-dim mb-1">
+              Demo Mode Active
+            </div>
+            <p className="text-xs font-mono text-terminal-muted">
+              Showing {DEMO_NODES.length} simulated nodes for presentations only. They are visual-only and cannot be opened or controlled.
+            </p>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-terminal-muted text-sm font-mono animate-pulse-glow">
             Scanning frequencies...
           </div>
-        ) : nodes.length === 0 ? (
+        ) : displayNodes.length === 0 ? (
           <div className="text-terminal-muted text-sm font-mono">
             No signal detected — awaiting radio transmission.
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {nodes.map((node, i) => (
-              <NodeCard key={node.id} node={node} index={i} xpPerHour={xpRates[node.id] || 0} />
+            {displayNodes.map((node, i) => (
+              <NodeCard
+                key={node.id}
+                node={node}
+                index={i}
+                xpPerHour={displayXpRates[node.id] || 0}
+                isDemo={node.id.startsWith("demo-")}
+              />
             ))}
           </div>
         )}
