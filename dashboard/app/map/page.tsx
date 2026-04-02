@@ -198,7 +198,7 @@ export default function MapPage() {
       </div>
 
       {nodes.length === 0 ? (
-        <div className="flex-1 relative" style={{ minHeight: "calc(100vh - 73px)" }}>
+        <div className="flex-1 relative" style={{ height: "calc(100vh - 73px)" }}>
           <MapView nodes={[]} fogEnabled={fogEnabled} />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[1000]">
             <div className="text-center bg-background/80 border border-terminal-border rounded px-6 py-4 backdrop-blur-sm">
@@ -209,7 +209,7 @@ export default function MapPage() {
           </div>
         </div>
       ) : (
-        <div className="flex-1" style={{ minHeight: "calc(100vh - 73px)" }}>
+        <div className="flex-1" style={{ height: "calc(100vh - 73px)" }}>
           <MapView nodes={nodes} fogEnabled={fogEnabled} />
         </div>
       )}

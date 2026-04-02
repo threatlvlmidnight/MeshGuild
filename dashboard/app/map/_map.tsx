@@ -107,7 +107,7 @@ export default function MapView({
     <MapContainer
       center={OKC_CENTER}
       zoom={11}
-      style={{ height: "100%", width: "100%", background: "#111318" }}
+      style={{ height: "calc(100vh - 73px)", width: "100%", background: "#111318" }}
     >
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
