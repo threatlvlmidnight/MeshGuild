@@ -258,11 +258,16 @@ export default function NodeDetail() {
         return false;
       }
     } else {
-      const { error } = await client
+      const { data: inserted, error } = await client
         .from("node_locations")
-        .insert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id });
+        .insert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id })
+        .select();
       writeError = error;
-      console.log("[SAVE PIN] insert result", { error });
+      console.log("[SAVE PIN] insert result", { inserted, error });
+      if (!error && (!inserted || inserted.length === 0)) {
+        toast.error("Could not save pin — you may not own this node");
+        return false;
+      }
     }
 
     if (writeError) {
