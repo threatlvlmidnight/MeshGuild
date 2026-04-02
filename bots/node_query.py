@@ -27,6 +27,7 @@ Each returned dict has the shape:
 import math
 import os
 from pathlib import Path
+from typing import Optional
 
 import requests
 from dotenv import load_dotenv
@@ -88,7 +89,7 @@ def fetch_nodes_near_okc(
     center_lat: float = OKC_LAT,
     center_lng: float = OKC_LNG,
     radius_mi: float = DEFAULT_RADIUS_MI,
-    api_url: str | None = None,
+    api_url: Optional[str] = None,
 ) -> list[dict]:
     """
     Fetch all publicly visible Meshtastic nodes within `radius_mi` miles of
@@ -97,7 +98,7 @@ def fetch_nodes_near_okc(
     Returns a list of normalized node dicts, each with an added
     'distance_mi' key, sorted nearest-first.
     """
-    url = api_url or os.environ.get("MESHMAP_API_URL", MESHMAP_API_URL)
+    url = api_url or os.environ.get("MESHMAP_API_URL", "https://meshmap.net/nodes.json")
 
     # 1. Pull everything from meshmap.net
     raw = fetch_meshmap_nodes(url)

@@ -26,6 +26,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 import requests
 from dotenv import load_dotenv
@@ -42,9 +43,9 @@ SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 DEFAULT_BBOX = "35.20,-97.90,35.80,-97.20"
 BBOX_RAW = os.environ.get("ALLY_BBOX", DEFAULT_BBOX)
 
-# meshmap.net public node API — adjust if the URL changes
+# meshmap.net public node API
 MESHMAP_API_URL = os.environ.get(
-    "MESHMAP_API_URL", "https://meshmap.net/api/node/all"
+    "MESHMAP_API_URL", "https://meshmap.net/nodes.json"
 )
 
 REQUEST_TIMEOUT = 20
@@ -61,7 +62,13 @@ def parse_bbox(bbox_str: str) -> tuple[float, float, float, float]:
 
 
 def fetch_meshmap_nodes(url: str) -> list[dict]:
-    """Pull all publicly visible nodes from meshmap.net."""
+    """Pull all publicly visible nodes from meshmap.net.
+
+    meshmap.net/nodes.json returns a dict keyed by decimal node number,
+    with latitude/longitude stored as integers in units of 1e-7 degrees.
+    We normalize to plain float degrees and add a 'num' key so the
+    downstream filter/normalize functions work unchanged.
+    """
     print(f"[ally_sync] Fetching {url}")
     resp = requests.get(
         url,
@@ -71,7 +78,26 @@ def fetch_meshmap_nodes(url: str) -> list[dict]:
     resp.raise_for_status()
     data = resp.json()
 
-    # meshmap.net returns either a list or {"nodes": [...]}
+    # nodes.json format: {"<nodeNum>": {longName, latitude, longitude, ...}, ...}
+    # latitude/longitude are in 1e-7 degree units.
+    if isinstance(data, dict) and not any(k in data for k in ("nodes", "data", "results")):
+        result = []
+        for num_str, node in data.items():
+            try:
+                num = int(num_str)
+            except (TypeError, ValueError):
+                continue
+            normalized = dict(node)
+            normalized["num"] = num
+            # Convert 1e-7 integer degrees → float degrees
+            if normalized.get("latitude") is not None:
+                normalized["latitude"] = normalized["latitude"] / 1e7
+            if normalized.get("longitude") is not None:
+                normalized["longitude"] = normalized["longitude"] / 1e7
+            result.append(normalized)
+        return result
+
+    # Legacy list format
     if isinstance(data, list):
         return data
     if isinstance(data, dict):
@@ -117,7 +143,7 @@ def get_guild_node_ids(client: Client) -> set[str]:
     return {row["id"] for row in (resp.data or [])}
 
 
-def node_to_row(node: dict) -> dict | None:
+def node_to_row(node: dict) -> Optional[dict]:
     """
     Normalize a meshmap.net node object → external_nodes row.
 
