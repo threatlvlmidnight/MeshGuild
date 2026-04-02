@@ -112,6 +112,7 @@ export default function NodeDetail() {
   const [manualLng, setManualLng] = useState("");
   const [hasGridPresenceBadge, setHasGridPresenceBadge] = useState(false);
   const [peerStats, setPeerStats] = useState<{ day: string; peers: number }[]>([]);
+  const [recentPeers, setRecentPeers] = useState<{ nodeId: string; lastSeen: string; rssi: number | null }[]>([]);
 
   useEffect(() => {
     const client = getSupabase();
@@ -142,7 +143,7 @@ export default function NodeDetail() {
       const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
 
-      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }, { data: ownerData }, { data: xpHourData }, { data: xpTodayData }, { data: locationData }, { data: peerRaw }] = await Promise.all([
+      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }, { data: ownerData }, { data: xpHourData }, { data: xpTodayData }, { data: locationData }, { data: peerRaw }, { data: peerRecentRaw }] = await Promise.all([
         client.from("nodes").select("*").eq("id", nodeId).single(),
         client
           .from("telemetry")
@@ -186,6 +187,12 @@ export default function NodeDetail() {
           .select("timestamp, node_id")
           .neq("node_id", nodeId)
           .gte("timestamp", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+        client
+          .from("telemetry")
+          .select("node_id, timestamp, rssi")
+          .neq("node_id", nodeId)
+          .gte("timestamp", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+          .order("timestamp", { ascending: false }),
       ]);
 
       // Compute XP rate
@@ -217,6 +224,19 @@ export default function NodeDetail() {
         peerDays.push({ day: key.slice(5), peers: peerByDay[key]?.size ?? 0 });
       }
       setPeerStats(peerDays);
+
+      // Compute most-recent contact per peer node (last 7 days)
+      const peerLatest: Record<string, { lastSeen: string; rssi: number | null }> = {};
+      for (const row of (peerRecentRaw ?? []) as { node_id: string; timestamp: string; rssi: number | null }[]) {
+        if (!peerLatest[row.node_id]) {
+          peerLatest[row.node_id] = { lastSeen: row.timestamp, rssi: row.rssi };
+        }
+      }
+      const sorted = Object.entries(peerLatest)
+        .map(([nodeId, v]) => ({ nodeId, lastSeen: v.lastSeen, rssi: v.rssi }))
+        .sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
+      setRecentPeers(sorted);
+
       setNodeLocation(locationData ?? null);
       if (ownerData) {
         setOwnership(ownerData);
@@ -633,6 +653,37 @@ export default function NodeDetail() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+
+            {/* Recent peer list */}
+            {recentPeers.length > 0 && (
+              <div className="mt-4 border-t border-terminal-border pt-3">
+                <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono mb-2">Recently Heard (last 7 days)</div>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {recentPeers.map((p) => {
+                    const age = Date.now() - new Date(p.lastSeen).getTime();
+                    const isToday = age < 24 * 60 * 60 * 1000;
+                    return (
+                      <div key={p.nodeId} className="flex items-center justify-between text-xs font-mono">
+                        <span className={isToday ? "text-terminal-cyan" : "text-terminal-muted"}>{p.nodeId}</span>
+                        <div className="flex items-center gap-3">
+                          {p.rssi !== null && (
+                            <span className="text-terminal-muted">{p.rssi} dBm</span>
+                          )}
+                          <span className={isToday ? "text-terminal-green" : "text-terminal-muted"}>
+                            {formatDistanceToNow(new Date(p.lastSeen), { addSuffix: true })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {recentPeers.length === 0 && (
+              <div className="mt-4 border-t border-terminal-border pt-3 text-terminal-muted text-xs font-mono">
+                No peer contacts in the last 7 days. Check that the collector is running.
+              </div>
+            )}
           </div>
         )}
 
