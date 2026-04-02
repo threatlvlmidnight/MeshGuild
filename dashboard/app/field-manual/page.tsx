@@ -457,7 +457,7 @@ export default function FieldManualPage() {
           </div>
           <div className="flex items-center gap-3 print:hidden">
             <button
-              onClick={() => window.print()}
+              onClick={() => window.open("/field-manual/print", "_blank")}
               className="text-xs font-mono text-terminal-muted hover:text-terminal-green transition-colors hidden sm:inline"
             >
               [ PRINT / PDF ]
