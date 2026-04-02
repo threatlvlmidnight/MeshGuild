@@ -185,6 +185,92 @@ const SECTIONS: Section[] = [
     ),
   },
   {
+    id: "node-setup-yeluft-v3",
+    title: "NODE SETUP: YELUFT V3",
+    icon: <HardDrive size={18} weight="bold" />,
+    content: (
+      <div className="space-y-4 text-sm font-mono text-terminal-muted">
+        <p>
+          Step-by-step setup for the <span className="text-terminal-green font-bold">YELUFT ESP32 LoRa V3</span> — the guild standard board.
+          Follow these steps in order before attempting the Rite of First Signal.
+        </p>
+
+        <div className="space-y-3">
+          <div className="panel p-3 border-terminal-green/20 space-y-1">
+            <p className="text-terminal-green font-bold text-xs tracking-wider">① ATTACH THE ANTENNA FIRST</p>
+            <p className="text-xs leading-relaxed">
+              Screw the included 915 MHz whip antenna onto the IPEX/SMA connector before powering on.
+              Running the board without an antenna connected can permanently damage the SX1262 LoRa radio.
+            </p>
+          </div>
+
+          <div className="panel p-3 border-terminal-green/20 space-y-1">
+            <p className="text-terminal-green font-bold text-xs tracking-wider">② FLASH MESHTASTIC FIRMWARE</p>
+            <p className="text-xs leading-relaxed">
+              Open <a href="https://flasher.meshtastic.org" target="_blank" rel="noopener noreferrer" className="text-terminal-green hover:underline">flasher.meshtastic.org</a> in <span className="text-terminal-amber">Chrome</span> (other browsers won&apos;t work — requires WebSerial).
+              Connect the board via USB-C. Select <span className="text-foreground">Heltec V3</span> as the device type and
+              click Flash. No need to hold any buttons — just plug in normally and the flasher will handle it.
+              The OLED will show the node ID and firmware version on first boot.
+            </p>
+          </div>
+
+          <div className="panel p-3 border-terminal-green/20 space-y-1">
+            <p className="text-terminal-green font-bold text-xs tracking-wider">③ PAIR WITH THE MESHTASTIC APP</p>
+            <p className="text-xs leading-relaxed">
+              Install the Meshtastic app (iOS or Android). Tap <span className="text-foreground">+</span> to add a radio and
+              scan for Bluetooth. Your device will appear as <span className="text-foreground">Meshtastic_XXXX</span>. Tap it to pair —
+              no PIN required.
+            </p>
+          </div>
+
+          <div className="panel p-3 border-terminal-green/20 space-y-1">
+            <p className="text-terminal-green font-bold text-xs tracking-wider">④ SET YOUR REGION</p>
+            <p className="text-xs leading-relaxed">
+              In the app: <span className="text-foreground">Radio Config → LoRa → Region → United States</span>.
+              The board ships with no region set — it will not transmit until this is configured.
+            </p>
+          </div>
+
+          <div className="panel p-3 border-terminal-amber/20 space-y-1">
+            <p className="text-terminal-amber font-bold text-xs tracking-wider">⑤ CHOOSE: BLUETOOTH OR WIFI — NOT BOTH</p>
+            <p className="text-xs leading-relaxed">
+              The V3 board cannot use Bluetooth and WiFi for the client connection simultaneously.
+              Pick one based on your use case:
+            </p>
+            <ul className="text-xs space-y-1 mt-1">
+              <li><span className="text-terminal-green">▸ Bluetooth:</span> Phone stays connected directly. Best for portable/handheld use.</li>
+              <li><span className="text-terminal-green">▸ WiFi:</span> Node connects to your home network and uploads to MQTT on its own. Phone not required. Best for fixed nodes. Configure under <span className="text-foreground">Radio Config → Network</span>.</li>
+            </ul>
+            <p className="text-xs mt-1 text-terminal-amber/80">
+              For MQTT uplink, WiFi mode is recommended so the node runs unattended.
+            </p>
+          </div>
+
+          <div className="panel p-3 border-terminal-green/20 space-y-1">
+            <p className="text-terminal-green font-bold text-xs tracking-wider">⑥ CONFIGURE MQTT</p>
+            <p className="text-xs leading-relaxed">
+              See <span className="text-terminal-green">Device Configuration</span> below for the guild MQTT settings.
+              Enable MQTT and JSON mode in <span className="text-foreground">Radio Config → MQTT</span>.
+            </p>
+          </div>
+
+          <div className="panel p-3 border-terminal-green/20 space-y-1">
+            <p className="text-terminal-green font-bold text-xs tracking-wider">⑦ SEND A TEST MESSAGE</p>
+            <p className="text-xs leading-relaxed">
+              Send any message on the Primary channel (LongFast). If configured correctly, it will appear
+              in the guild&apos;s Mesh Shell within seconds. Your node is now on the mesh.
+            </p>
+          </div>
+        </div>
+
+        <p className="text-xs text-terminal-muted/60">
+          Once your node is transmitting, proceed to the <span className="text-terminal-green">Rite of First Signal</span> to
+          claim it and join the guild.
+        </p>
+      </div>
+    ),
+  },
+  {
     id: "device-configuration",
     title: "DEVICE CONFIGURATION",
     icon: <Plugs size={18} weight="bold" />,

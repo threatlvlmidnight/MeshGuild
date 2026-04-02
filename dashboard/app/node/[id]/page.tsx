@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getSupabase, Node, Achievement, Card, Profile, NodeOwnership, RARITY_COLORS, ACHIEVEMENT_LABELS } from "@/lib/supabase";
+import { getSupabase, Node, Achievement, Card, Profile, NodeOwnership, NodeLocation, RARITY_COLORS, ACHIEVEMENT_LABELS } from "@/lib/supabase";
 import { LevelBadge, XpProgressBar } from "@/components/level-badge";
 import { formatDistanceToNow, format } from "date-fns";
-import { ArrowLeft, WifiHigh, WifiSlash, UserCircle, Trophy, Cards, ChartLine, Terminal, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, WifiHigh, WifiSlash, UserCircle, Trophy, Cards, ChartLine, Terminal, Trash, MapPin } from "@phosphor-icons/react";
 import {
   LineChart,
   Line,
@@ -101,6 +101,12 @@ export default function NodeDetail() {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [xpRate, setXpRate] = useState<{ perHour: number; today: number; breakdown: Record<string, number> } | null>(null);
+  const [nodeLocation, setNodeLocation] = useState<NodeLocation | null>(null);
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [locationMode, setLocationMode] = useState<"idle" | "manual">("idle");
+  const [manualLat, setManualLat] = useState("");
+  const [manualLng, setManualLng] = useState("");
+  const [hasGridPresenceBadge, setHasGridPresenceBadge] = useState(false);
 
   useEffect(() => {
     const client = getSupabase();
@@ -115,6 +121,14 @@ export default function NodeDetail() {
           .single();
         setProfile(prof);
         setIsOfficer(prof?.role === "leader" || prof?.role === "elder");
+        // Check if player already has GRID_PRESENCE badge
+        const { data: badge } = await client
+          .from("player_badges")
+          .select("id")
+          .eq("player_id", user.id)
+          .eq("badge_key", "GRID_PRESENCE")
+          .maybeSingle();
+        setHasGridPresenceBadge(!!badge);
       }
     }
     loadAuth();
@@ -123,7 +137,7 @@ export default function NodeDetail() {
       const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
 
-      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }, { data: ownerData }, { data: xpHourData }, { data: xpTodayData }] = await Promise.all([
+      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }, { data: ownerData }, { data: xpHourData }, { data: xpTodayData }, { data: locationData }] = await Promise.all([
         client.from("nodes").select("*").eq("id", nodeId).single(),
         client
           .from("telemetry")
@@ -157,6 +171,11 @@ export default function NodeDetail() {
           .select("event_type, xp_awarded")
           .eq("node_id", nodeId)
           .gte("created_at", todayStart),
+        client
+          .from("node_locations")
+          .select("*")
+          .eq("node_id", nodeId)
+          .maybeSingle(),
       ]);
 
       // Compute XP rate
@@ -173,6 +192,7 @@ export default function NodeDetail() {
       setTelemetry(telemData ?? []);
       setAchievements(achData ?? []);
       setCards(cardData ?? []);
+      setNodeLocation(locationData ?? null);
       if (ownerData) {
         setOwnership(ownerData);
         // Fetch owner callsign
@@ -208,6 +228,62 @@ export default function NodeDetail() {
       client.removeChannel(channel);
     };
   }, [nodeId]);
+
+  function fuzzCoord() { return (Math.random() - 0.5) * 0.018; } // ~1km offset
+
+  async function handleUseApproximateLocation() {
+    if (!profile) return;
+    setSavingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude + fuzzCoord();
+        const lng = pos.coords.longitude + fuzzCoord();
+        const client = getSupabase();
+        const { data } = await client
+          .from("node_locations")
+          .upsert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id }, { onConflict: "node_id" })
+          .select()
+          .single();
+        if (data) setNodeLocation(data as NodeLocation);
+        setSavingLocation(false);
+      },
+      () => {
+        // Geolocation denied/unavailable — fall back to manual entry
+        setLocationMode("manual");
+        setSavingLocation(false);
+      }
+    );
+  }
+
+  async function handleManualSave() {
+    if (!profile || !manualLat || !manualLng) return;
+    setSavingLocation(true);
+    const lat = parseFloat(manualLat) + fuzzCoord();
+    const lng = parseFloat(manualLng) + fuzzCoord();
+    const client = getSupabase();
+    const { data } = await client
+      .from("node_locations")
+      .upsert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id }, { onConflict: "node_id" })
+      .select()
+      .single();
+    if (data) setNodeLocation(data as NodeLocation);
+    setLocationMode("idle");
+    setSavingLocation(false);
+  }
+
+  async function handleOptOut() {
+    if (!profile) return;
+    setSavingLocation(true);
+    const client = getSupabase();
+    const { data } = await client
+      .from("node_locations")
+      .update({ opt_in: false })
+      .eq("node_id", nodeId)
+      .select()
+      .single();
+    if (data) setNodeLocation(data as NodeLocation);
+    setSavingLocation(false);
+  }
 
   if (loading) {
     return (
@@ -462,6 +538,118 @@ export default function NodeDetail() {
             <div className="text-terminal-muted text-sm font-mono">Sign in to claim this node</div>
           )}
         </div>
+
+        {/* Grid Position — owner only */}
+        {profile && ownership && ownership.player_id === profile.id && (
+          <div className="panel p-4 mb-8">
+            <h2 className="text-sm font-mono font-bold text-terminal-cyan uppercase tracking-widest mb-3 flex items-center gap-2">
+              <MapPin size={14} weight="bold" />
+              GRID POSITION
+            </h2>
+
+            <p className="text-terminal-muted text-xs font-mono mb-4 leading-relaxed">
+              Your approximate location is visible only to approved guild operators.
+              We store a fuzzed position (~1km offset) — never your precise coordinates.
+            </p>
+
+            {!hasGridPresenceBadge && (!nodeLocation || !nodeLocation.opt_in) && (
+              <div className="text-xs font-mono text-terminal-cyan border border-terminal-cyan/20 bg-terminal-cyan/5 rounded px-3 py-2 mb-4">
+                Share your location to earn the <span className="font-bold">GRID_PRESENCE</span> commendation badge.
+              </div>
+            )}
+
+            {nodeLocation && nodeLocation.opt_in ? (
+              <div>
+                <div className="text-xs font-mono text-terminal-green mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-terminal-green inline-block" />
+                  Location on map (approximate)
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={handleUseApproximateLocation}
+                    disabled={savingLocation}
+                    className="text-xs font-mono border border-terminal-border text-terminal-muted hover:text-terminal-dim px-3 py-1.5 rounded transition-colors disabled:opacity-50"
+                  >
+                    {savingLocation ? "UPDATING..." : "UPDATE"}
+                  </button>
+                  <button
+                    onClick={() => setLocationMode(locationMode === "manual" ? "idle" : "manual")}
+                    className="text-xs font-mono border border-terminal-border text-terminal-muted hover:text-terminal-dim px-3 py-1.5 rounded transition-colors"
+                  >
+                    MANUAL PIN
+                  </button>
+                  <button
+                    onClick={handleOptOut}
+                    disabled={savingLocation}
+                    className="text-xs font-mono border border-terminal-red/20 text-terminal-red/70 hover:text-terminal-red px-3 py-1.5 rounded transition-colors disabled:opacity-50"
+                  >
+                    OPT OUT
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <button
+                  onClick={handleUseApproximateLocation}
+                  disabled={savingLocation}
+                  className="w-full text-sm font-mono border border-terminal-cyan/30 bg-terminal-cyan/10 text-terminal-cyan hover:bg-terminal-cyan/20 px-4 py-2.5 rounded transition-colors disabled:opacity-50"
+                >
+                  {savingLocation && locationMode === "idle" ? "LOCATING..." : "USE MY APPROXIMATE LOCATION"}
+                </button>
+                <button
+                  onClick={() => setLocationMode(locationMode === "manual" ? "idle" : "manual")}
+                  className="w-full text-xs font-mono border border-terminal-border text-terminal-muted hover:text-terminal-dim px-4 py-2 rounded transition-colors"
+                >
+                  PLACE PIN MANUALLY
+                </button>
+              </div>
+            )}
+
+            {locationMode === "manual" && (
+              <div className="mt-3 border border-terminal-border rounded p-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-terminal-muted text-[10px] font-mono uppercase tracking-widest block mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={manualLat}
+                      onChange={(e) => setManualLat(e.target.value)}
+                      placeholder="35.4676"
+                      className="w-full bg-background border border-terminal-border text-foreground text-xs font-mono px-2 py-1.5 rounded focus:outline-none focus:border-terminal-cyan/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-terminal-muted text-[10px] font-mono uppercase tracking-widest block mb-1">Longitude</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={manualLng}
+                      onChange={(e) => setManualLng(e.target.value)}
+                      placeholder="-97.5164"
+                      className="w-full bg-background border border-terminal-border text-foreground text-xs font-mono px-2 py-1.5 rounded focus:outline-none focus:border-terminal-cyan/50"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleManualSave}
+                    disabled={savingLocation || !manualLat || !manualLng}
+                    className="flex-1 text-xs font-mono border border-terminal-cyan/30 bg-terminal-cyan/10 text-terminal-cyan hover:bg-terminal-cyan/20 px-3 py-1.5 rounded transition-colors disabled:opacity-50"
+                  >
+                    {savingLocation && locationMode === "manual" ? "SAVING..." : "SAVE PIN"}
+                  </button>
+                  <button
+                    onClick={() => setLocationMode("idle")}
+                    className="text-xs font-mono border border-terminal-border text-terminal-muted hover:text-terminal-dim px-3 py-1.5 rounded transition-colors"
+                  >
+                    CANCEL
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* XP & Level */}
         <div className="panel p-4 mb-8">

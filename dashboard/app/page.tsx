@@ -720,6 +720,12 @@ export default function Home() {
             >
               [ REGISTRY ]
             </Link>
+            <Link
+              href="/map"
+              className="text-xs font-mono text-terminal-dim hover:text-terminal-green transition-colors hidden sm:inline"
+            >
+              [ MAP ]
+            </Link>
             <AuthNav />
           </div>
         </div>

@@ -8,7 +8,8 @@ export type CommendationBadgeKey =
   | "MENTORSHIP"
   | "LEADERSHIP"
   | "FIELDCRAFT"
-  | "SIGNAL_BOOST";
+  | "SIGNAL_BOOST"
+  | "GRID_PRESENCE";
 
 export type SpecialBadgeKey = "FOUNDER" | "PIONEER";
 
@@ -128,6 +129,27 @@ export const BADGE_REGISTRY: Record<string, BadgeDef> = {
       [0, 0, 0, 0, 0, 0, 0, 0, 0],
       [0, 0, 0, 1, 0, 1, 0, 0, 0],
       [0, 1, 0, 0, 0, 0, 0, 1, 0],
+    ],
+  },
+
+  // ── GRID_PRESENCE ── map pin: circle head, narrowing stem, pointer tip
+  GRID_PRESENCE: {
+    key: "GRID_PRESENCE",
+    label: "Grid Presence",
+    description: "Placed this node on the guild map",
+    color: "#00c8ff",
+    accent: "#ffffff",
+    shadow: "rgba(0,200,255,0.65)",
+    pixels: [
+      [0, 0, 1, 1, 1, 1, 1, 0, 0],
+      [0, 1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 1, 1, 1, 2, 1, 1, 1, 0],
+      [0, 1, 1, 1, 1, 1, 1, 1, 0],
+      [0, 0, 1, 1, 1, 1, 1, 0, 0],
+      [0, 0, 0, 1, 1, 1, 0, 0, 0],
+      [0, 0, 0, 0, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0],
     ],
   },
 

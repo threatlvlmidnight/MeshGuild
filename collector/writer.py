@@ -356,11 +356,15 @@ class SupabaseWriter:
             )
 
             # Uptime percentage
+            # Measure actual downtime rather than assuming 1hr per alert:
+            # - If currently offline: count real seconds since last_seen as the current outage.
+            # - Each prior recovered outage: estimate 1hr (best we can without outage-end timestamps).
             created = node.get("created_at")
             uptime_pct = None
             if created:
                 created_dt = parse_dt(created)
-                hours_existed = max((now - created_dt).total_seconds() / 3600, 1)
+                total_seconds = max((now - created_dt).total_seconds(), 1)
+
                 offline_alerts = (
                     self.client.table("alerts")
                     .select("id", count="exact")
@@ -369,13 +373,30 @@ class SupabaseWriter:
                     .gte("created_at", created)
                     .execute()
                 )
-                offline_hours = (offline_alerts.count or 0) * 1.0
+                alert_count = offline_alerts.count or 0
+
+                offline_seconds = 0
+                if not node.get("is_online"):
+                    # Currently offline: use actual elapsed time since last packet
+                    last_seen_str = node.get("last_seen")
+                    if last_seen_str:
+                        last_seen_dt = parse_dt(last_seen_str)
+                        offline_seconds += max(0, (now - last_seen_dt).total_seconds())
+                    # Don't double-count the alert that triggered this outage
+                    prior_outages = max(0, alert_count - 1)
+                else:
+                    prior_outages = alert_count
+
+                # Each prior recovered outage: conservative 1hr estimate
+                offline_seconds += prior_outages * 3600
+
                 uptime_pct = round(
-                    max(0, min(100, ((hours_existed - offline_hours) / hours_existed) * 100)),
+                    max(0, min(100, (1 - offline_seconds / total_seconds) * 100)),
                     1,
                 )
 
             # Current streak
+            # A node that is currently offline has no active streak.
             current_streak = 0
             last_offline = (
                 self.client.table("alerts")
@@ -386,7 +407,9 @@ class SupabaseWriter:
                 .limit(1)
                 .execute()
             )
-            if last_offline.data:
+            if not node.get("is_online"):
+                current_streak = 0
+            elif last_offline.data:
                 last_dt = parse_dt(last_offline.data[0]["created_at"])
                 current_streak = max(0, (now - last_dt).days)
             elif created:

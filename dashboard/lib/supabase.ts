@@ -120,6 +120,16 @@ export interface PlayerBadge {
   note: string | null;
 }
 
+export interface NodeLocation {
+  id: number;
+  node_id: string;
+  lat: number;
+  lng: number;
+  opt_in: boolean;
+  set_at: string;
+  set_by: string | null;
+}
+
 export interface MeshMessage {
   id: string;
   node_id: string;

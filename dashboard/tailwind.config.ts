@@ -17,6 +17,7 @@ const config: Config = {
           gold: "#d4a746",
           amber: "#f0b429",
           red: "#ff4444",
+          cyan: "#00c8ff",
           bg: "#111318",
           panel: "#181b22",
           border: "#2a2f3a",
