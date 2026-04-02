@@ -5,6 +5,13 @@ import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMap } from "react-leaflet";
 import { formatDistanceToNow } from "date-fns";
 
+export interface ExternalNodeData {
+  id: string;
+  name: string | null;
+  lat: number;
+  lng: number;
+}
+
 export interface MapNodeData {
   nodeId: string;
   lat: number;
@@ -99,9 +106,11 @@ function FogLayer({ nodes }: { nodes: MapNodeData[] }) {
 export default function MapView({
   nodes,
   fogEnabled,
+  externalNodes = [],
 }: {
   nodes: MapNodeData[];
   fogEnabled: boolean;
+  externalNodes?: ExternalNodeData[];
 }) {
   return (
     <MapContainer
@@ -116,6 +125,42 @@ export default function MapView({
       />
 
       {fogEnabled && <FogLayer nodes={nodes} />}
+
+      {/* Ally/external relay nodes — gray dashed markers */}
+      {externalNodes.map((ext) => (
+        <CircleMarker
+          key={ext.id}
+          center={[ext.lat, ext.lng]}
+          radius={6}
+          pathOptions={{
+            color: "#6b7280",
+            weight: 1.5,
+            dashArray: "4 3",
+            fillColor: "#2a2f3a",
+            fillOpacity: 0.7,
+          }}
+        >
+          <Popup>
+            <div
+              style={{
+                fontFamily: "monospace",
+                fontSize: "12px",
+                color: "#e0e0e0",
+                background: "#181b22",
+                padding: "4px 0",
+                minWidth: "160px",
+                lineHeight: "1.6",
+              }}
+            >
+              <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#6b7280" }}>
+                {ext.name ?? ext.id}
+              </div>
+              <div style={{ color: "#6b7280", fontSize: "11px" }}>EXTERNAL RELAY</div>
+              <div style={{ color: "#4b5563", fontSize: "10px", marginTop: "2px" }}>Not in guild — mesh ally</div>
+            </div>
+          </Popup>
+        </CircleMarker>
+      ))}
 
       {nodes.map((node) => (
         <span key={node.nodeId}>

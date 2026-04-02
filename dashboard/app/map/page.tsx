@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { getSupabase, NodeLocation } from "@/lib/supabase";
 import { ArrowLeft, MapPin } from "@phosphor-icons/react";
-import type { MapNodeData } from "./_map";
+import type { MapNodeData, ExternalNodeData } from "./_map";
 
 const MapView = dynamic(() => import("./_map"), { ssr: false });
 
@@ -13,6 +13,7 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [nodes, setNodes] = useState<MapNodeData[]>([]);
+  const [externalNodes, setExternalNodes] = useState<ExternalNodeData[]>([]);
   const [fogEnabled, setFogEnabled] = useState(true);
 
   useEffect(() => {
@@ -128,6 +129,20 @@ export default function MapPage() {
       });
 
       setNodes(mapNodes);
+
+      // Fetch external/ally relay nodes
+      const { data: extData } = await client
+        .from("external_nodes")
+        .select("id, name, lat, lng");
+      setExternalNodes(
+        (extData ?? []).map((e: { id: string; name: string | null; lat: number; lng: number }) => ({
+          id: e.id,
+          name: e.name,
+          lat: e.lat,
+          lng: e.lng,
+        }))
+      );
+
       setLoading(false);
     }
 
@@ -199,7 +214,7 @@ export default function MapPage() {
 
       {nodes.length === 0 ? (
         <div className="flex-1 relative" style={{ height: "calc(100vh - 73px)" }}>
-          <MapView nodes={[]} fogEnabled={fogEnabled} />
+          <MapView nodes={[]} fogEnabled={fogEnabled} externalNodes={externalNodes} />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[1000]">
             <div className="text-center bg-background/80 border border-terminal-border rounded px-6 py-4 backdrop-blur-sm">
               <MapPin size={32} className="text-terminal-muted mx-auto mb-2" weight="thin" />
@@ -210,7 +225,7 @@ export default function MapPage() {
         </div>
       ) : (
         <div className="flex-1" style={{ height: "calc(100vh - 73px)" }}>
-          <MapView nodes={nodes} fogEnabled={fogEnabled} />
+          <MapView nodes={nodes} fogEnabled={fogEnabled} externalNodes={externalNodes} />
         </div>
       )}
     </main>
