@@ -107,6 +107,9 @@ body {
     text-shadow: none !important;
     animation: none !important;
     transition: none !important;
+    /* Force framer-motion invisible elements visible */
+    opacity: 1 !important;
+    transform: none !important;
   }
 
   /* Readable text colors */
