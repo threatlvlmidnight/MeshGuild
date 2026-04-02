@@ -57,7 +57,7 @@ export default function MapPage() {
 
       if (!locations || locations.length === 0) {
         setLoading(false);
-        return;
+        return; // map still shows — nodes stays []
       }
 
       const nodeIds = (locations as NodeLocation[]).map((l) => l.node_id);
@@ -198,18 +198,13 @@ export default function MapPage() {
       </div>
 
       {nodes.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center">
-            <MapPin
-              size={40}
-              className="text-terminal-muted mx-auto mb-4"
-              weight="thin"
-            />
-            <div className="text-terminal-muted text-sm font-mono">
-              No nodes have shared their location yet.
-            </div>
-            <div className="text-terminal-muted text-xs font-mono mt-2">
-              Visit your node page to place yourself on the map.
+        <div className="flex-1 relative" style={{ minHeight: "calc(100vh - 73px)" }}>
+          <MapView nodes={[]} fogEnabled={fogEnabled} />
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[1000]">
+            <div className="text-center bg-background/80 border border-terminal-border rounded px-6 py-4 backdrop-blur-sm">
+              <MapPin size={32} className="text-terminal-muted mx-auto mb-2" weight="thin" />
+              <div className="text-terminal-muted text-sm font-mono">No nodes on the map yet.</div>
+              <div className="text-terminal-muted text-xs font-mono mt-1">Visit your node page to share your location.</div>
             </div>
           </div>
         </div>

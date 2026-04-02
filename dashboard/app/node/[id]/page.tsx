@@ -641,7 +641,7 @@ export default function NodeDetail() {
                     {savingLocation ? "UPDATING..." : "UPDATE"}
                   </button>
                   <button
-                    onClick={() => { setSavingLocation(false); setLocationMode(locationMode === "manual" ? "idle" : "manual"); }}
+                    onClick={() => { setSavingLocation(false); setManualLat(""); setManualLng(""); setLocationMode(locationMode === "manual" ? "idle" : "manual"); }}
                     className="text-xs font-mono border border-terminal-border text-terminal-muted hover:text-terminal-dim px-3 py-1.5 rounded transition-colors"
                   >
                     MANUAL PIN
@@ -665,7 +665,7 @@ export default function NodeDetail() {
                   {savingLocation && locationMode === "idle" ? "LOCATING..." : "USE MY APPROXIMATE LOCATION"}
                 </button>
                 <button
-                  onClick={() => { setSavingLocation(false); setLocationMode(locationMode === "manual" ? "idle" : "manual"); }}
+                  onClick={() => { setSavingLocation(false); setManualLat(""); setManualLng(""); setLocationMode(locationMode === "manual" ? "idle" : "manual"); }}
                   className="w-full text-xs font-mono border border-terminal-border text-terminal-muted hover:text-terminal-dim px-4 py-2 rounded transition-colors"
                 >
                   PLACE PIN MANUALLY
@@ -702,7 +702,7 @@ export default function NodeDetail() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleManualSave}
-                    disabled={savingLocation || !manualLat || !manualLng}
+                    disabled={savingLocation || !manualLat.trim() || !manualLng.trim()}
                     className="flex-1 text-xs font-mono border border-terminal-cyan/30 bg-terminal-cyan/10 text-terminal-cyan hover:bg-terminal-cyan/20 px-3 py-1.5 rounded transition-colors disabled:opacity-50"
                   >
                     {savingLocation && locationMode === "manual" ? "SAVING..." : "SAVE PIN"}
