@@ -47,7 +47,9 @@ export default function MapPage() {
         .select("*")
         .eq("opt_in", true);
 
-      console.log("[MAP] node_locations query", { locations, locError });
+      console.log("[MAP] locations count:", locations?.length ?? "null/undefined");
+      console.log("[MAP] locations error:", locError?.message ?? "none");
+      console.log("[MAP] locations raw:", JSON.stringify(locations));
 
       if (locError) {
         console.error("[MAP] node_locations error:", locError);
