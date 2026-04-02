@@ -356,6 +356,7 @@ export default function MapView({
                 fillColor: "#60a5fa",
                 fillOpacity: 0.05,
                 interactive: false,
+                className: "range-ring",
               }}
             />
           )}
@@ -471,6 +472,7 @@ export default function MapView({
                 fillColor: "#00ff88",
                 fillOpacity: 0.05,
                 interactive: false,
+                className: "range-ring",
               }}
             />
           )}

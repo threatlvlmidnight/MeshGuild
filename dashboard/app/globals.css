@@ -119,6 +119,11 @@ body {
   z-index: 700 !important;
 }
 
+/* Range rings must never swallow pointer events — they're decorative only */
+.range-ring {
+  pointer-events: none !important;
+}
+
 /* Print styles for Field Manual PDF export */
 @media print {
   /* Force white page */
