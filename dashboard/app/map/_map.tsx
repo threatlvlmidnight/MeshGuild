@@ -185,16 +185,16 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
       function drawGlow(lat: number, lng: number, rgb: string) {
         const pt = map.latLngToContainerPoint([lat, lng]);
         const glow = ctx.createRadialGradient(
-          pt.x, pt.y, revealPx * 0.68,
-          pt.x, pt.y, revealPx * 1.12
+          pt.x, pt.y, revealPx * 0.78,
+          pt.x, pt.y, revealPx * 0.98
         );
         glow.addColorStop(0,   `rgba(${rgb},0)`);
-        glow.addColorStop(0.3, `rgba(${rgb},0.34)`);
-        glow.addColorStop(0.6, `rgba(${rgb},0.18)`);
+        glow.addColorStop(0.3, `rgba(${rgb},0.18)`);
+        glow.addColorStop(0.6, `rgba(${rgb},0.09)`);
         glow.addColorStop(1,   `rgba(${rgb},0)`);
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(pt.x, pt.y, revealPx * 1.12, 0, Math.PI * 2);
+        ctx.arc(pt.x, pt.y, revealPx * 0.98, 0, Math.PI * 2);
         ctx.fill();
 
         const tint = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, revealPx * 0.42);
