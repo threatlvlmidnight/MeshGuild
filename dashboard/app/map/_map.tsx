@@ -2,7 +2,7 @@
 
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
-import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import { formatDistanceToNow } from "date-fns";
 import PlanLayer from "./_plan";
 import type { PlanNode, PoiResult } from "./_plan";
@@ -311,21 +311,9 @@ export default function MapView({
 
       {fogEnabled && <FogLayer nodes={nodes} externalNodes={externalNodes} />}
 
-      {/* Ally/external relay nodes — visible dashed markers with range ring */}
+      {/* Ally/external relay nodes — dashed markers; range shown by canvas fog layer */}
       {externalNodes.map((ext) => (
         <span key={ext.id}>
-          {/* Faint range ring — same 4km estimate as guild nodes */}
-          <Circle
-            center={[ext.lat, ext.lng]}
-            radius={RF_RADIUS_M}
-            pathOptions={{
-              color: "#60a5fa",
-              weight: 1,
-              opacity: 0.22,
-              fillColor: "#60a5fa",
-              fillOpacity: 0.04,
-            }}
-          />
           <CircleMarker
             center={[ext.lat, ext.lng]}
             radius={11}
@@ -426,22 +414,7 @@ export default function MapView({
 
       {nodes.map((node) => (
         <span key={node.nodeId}>
-          {/* RF influence halo — online nodes only */}
-          {node.isOnline && (
-            <Circle
-              center={[node.lat, node.lng]}
-              radius={RF_RADIUS_M}
-              pathOptions={{
-                color: "#f0b429",
-                weight: 1,
-                opacity: 0.25,
-                fillColor: "#f0b429",
-                fillOpacity: 0.06,
-              }}
-            />
-          )}
-
-          {/* Node marker */}
+          {/* Node marker — RF range shown by canvas fog layer */}
           <CircleMarker
             center={[node.lat, node.lng]}
             radius={node.isOnline ? 8 : 6}
