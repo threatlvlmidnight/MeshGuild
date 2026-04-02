@@ -13,6 +13,7 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [nodes, setNodes] = useState<MapNodeData[]>([]);
+  const [fogEnabled, setFogEnabled] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -171,8 +172,20 @@ export default function MapPage() {
             GUILD MAP
           </h1>
         </div>
-        <div className="text-terminal-muted text-xs font-mono">
-          {nodes.length} node{nodes.length !== 1 ? "s" : ""} on map
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setFogEnabled((f) => !f)}
+            className={`text-xs font-mono px-3 py-1.5 rounded border transition-colors ${
+              fogEnabled
+                ? "border-terminal-cyan/40 text-terminal-cyan bg-terminal-cyan/10 hover:bg-terminal-cyan/20"
+                : "border-terminal-border text-terminal-muted hover:text-terminal-dim hover:border-terminal-dim/30"
+            }`}
+          >
+            {fogEnabled ? "[ FOG: ON ]" : "[ FOG: OFF ]"}
+          </button>
+          <div className="text-terminal-muted text-xs font-mono">
+            {nodes.length} node{nodes.length !== 1 ? "s" : ""} on map
+          </div>
         </div>
       </div>
 
@@ -194,7 +207,7 @@ export default function MapPage() {
         </div>
       ) : (
         <div className="flex-1" style={{ minHeight: "calc(100vh - 73px)" }}>
-          <MapView nodes={nodes} />
+          <MapView nodes={nodes} fogEnabled={fogEnabled} />
         </div>
       )}
     </main>

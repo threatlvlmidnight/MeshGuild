@@ -1,7 +1,8 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer, CircleMarker, Circle, Popup } from "react-leaflet";
+import { useEffect, useRef } from "react";
+import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMap } from "react-leaflet";
 import { formatDistanceToNow } from "date-fns";
 
 export interface MapNodeData {
@@ -19,7 +20,89 @@ export interface MapNodeData {
 const OKC_CENTER: [number, number] = [35.4676, -97.5164];
 const RF_RADIUS_M = 8046; // ~5 miles — approx LoRa range halo
 
-export default function MapView({ nodes }: { nodes: MapNodeData[] }) {
+// ── Fog of War ──────────────────────────────────────────────────────────────
+// Canvas layer that covers the map with a dark overlay and punches soft-edged
+// reveal holes at online node coverage zones using destination-out compositing.
+function FogLayer({ nodes }: { nodes: MapNodeData[] }) {
+  const map = useMap();
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText =
+      "position:absolute;top:0;left:0;pointer-events:none;z-index:450;";
+    map.getContainer().appendChild(canvas);
+    canvasRef.current = canvas;
+
+    function redraw() {
+      const size = map.getSize();
+      canvas.width = size.x;
+      canvas.height = size.y;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.clearRect(0, 0, size.x, size.y);
+
+      // Dark fog fill
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "rgba(8, 10, 16, 0.82)";
+      ctx.fillRect(0, 0, size.x, size.y);
+
+      // Punch soft-edged holes at online node positions
+      ctx.globalCompositeOperation = "destination-out";
+
+      const zoom = map.getZoom();
+      const centerLat = map.getCenter().lat;
+      const metersPerPx =
+        (156543.03392 * Math.cos((centerLat * Math.PI) / 180)) /
+        Math.pow(2, zoom);
+      const revealPx = RF_RADIUS_M / metersPerPx;
+
+      for (const node of nodes.filter((n) => n.isOnline)) {
+        const pt = map.latLngToContainerPoint([node.lat, node.lng]);
+        const inner = revealPx * 0.35;
+
+        const grad = ctx.createRadialGradient(
+          pt.x, pt.y, inner,
+          pt.x, pt.y, revealPx
+        );
+        grad.addColorStop(0, "rgba(0,0,0,1)");
+        grad.addColorStop(0.65, "rgba(0,0,0,0.95)");
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, revealPx, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    map.on("move", redraw);
+    map.on("resize", redraw);
+    redraw();
+
+    return () => {
+      map.off("move", redraw);
+      map.off("resize", redraw);
+      if (canvasRef.current && map.getContainer().contains(canvasRef.current)) {
+        map.getContainer().removeChild(canvasRef.current);
+      }
+      canvasRef.current = null;
+    };
+  }, [map, nodes]);
+
+  return null;
+}
+
+export default function MapView({
+  nodes,
+  fogEnabled,
+}: {
+  nodes: MapNodeData[];
+  fogEnabled: boolean;
+}) {
   return (
     <MapContainer
       center={OKC_CENTER}
@@ -31,6 +114,8 @@ export default function MapView({ nodes }: { nodes: MapNodeData[] }) {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         maxZoom={19}
       />
+
+      {fogEnabled && <FogLayer nodes={nodes} />}
 
       {nodes.map((node) => (
         <span key={node.nodeId}>
