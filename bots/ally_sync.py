@@ -180,6 +180,38 @@ def node_to_row(node: dict) -> Optional[dict]:
         or None
     )
 
+    # Hardware + role
+    hw_model = node.get("hwModel") or node.get("hw_model") or None
+    role     = node.get("role") or None
+
+    # Altitude (already converted to float degrees in fetch_meshmap_nodes,
+    # but altitude is not a coordinate so it comes through unchanged in metres)
+    altitude = node.get("altitude")
+    if altitude is not None:
+        try:
+            altitude = int(altitude)
+        except (TypeError, ValueError):
+            altitude = None
+
+    # Location precision setting (smaller number = less precise)
+    precision = node.get("precision")
+    if precision is not None:
+        try:
+            precision = int(precision)
+        except (TypeError, ValueError):
+            precision = None
+
+    # seenBy: dict of {mqtt_topic: unix_timestamp}
+    seen_by = node.get("seenBy") or {}
+    neighbor_count = len(seen_by)
+    last_seen_ts = None
+    if seen_by:
+        try:
+            max_ts = max(v for v in seen_by.values() if isinstance(v, (int, float)))
+            last_seen_ts = datetime.fromtimestamp(max_ts, tz=timezone.utc).isoformat()
+        except (ValueError, TypeError):
+            pass
+
     return {
         "id": node_id,
         "name": name,
@@ -187,6 +219,12 @@ def node_to_row(node: dict) -> Optional[dict]:
         "lng": node["_lng"],
         "source": "meshmap.net",
         "noted_at": datetime.now(timezone.utc).isoformat(),
+        "hw_model": hw_model,
+        "role": role,
+        "altitude": altitude,
+        "precision": precision,
+        "neighbor_count": neighbor_count if neighbor_count else None,
+        "last_seen": last_seen_ts,
     }
 
 

@@ -12,6 +12,13 @@ export interface ExternalNodeData {
   name: string | null;
   lat: number;
   lng: number;
+  hw_model: string | null;
+  role: string | null;
+  altitude: number | null;
+  precision: number | null;
+  neighbor_count: number | null;
+  last_seen: string | null;
+  noted_at: string | null;
 }
 
 export interface MapNodeData {
@@ -321,15 +328,80 @@ export default function MapView({
                 color: "#e0e0e0",
                 background: "#181b22",
                 padding: "4px 0",
-                minWidth: "160px",
-                lineHeight: "1.6",
+                minWidth: "200px",
+                lineHeight: "1.7",
               }}
             >
-              <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#60a5fa" }}>
+              {/* Header */}
+              <div style={{ fontWeight: "bold", marginBottom: "2px", color: "#60a5fa", fontSize: "13px" }}>
                 {ext.name ?? ext.id}
               </div>
-              <div style={{ color: "#60a5fa", fontSize: "11px" }}>EXTERNAL RELAY</div>
-              <div style={{ color: "#6b7280", fontSize: "10px", marginTop: "2px" }}>Not in guild — mesh ally</div>
+              {ext.name && (
+                <div style={{ color: "#6b7280", fontSize: "10px", marginBottom: "6px" }}>{ext.id}</div>
+              )}
+
+              {/* Metadata table */}
+              <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                <tbody>
+                  {ext.hw_model && (
+                    <tr>
+                      <td style={{ color: "#9ca3af", paddingRight: "8px", whiteSpace: "nowrap" }}>Hardware</td>
+                      <td style={{ color: "#e0e0e0" }}>{ext.hw_model.replace(/_/g, " ")}</td>
+                    </tr>
+                  )}
+                  {ext.role && (
+                    <tr>
+                      <td style={{ color: "#9ca3af", paddingRight: "8px" }}>Role</td>
+                      <td style={{ color: "#e0e0e0" }}>{ext.role}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td style={{ color: "#9ca3af", paddingRight: "8px" }}>Location</td>
+                    <td style={{ color: "#e0e0e0" }}>{ext.lat.toFixed(5)}, {ext.lng.toFixed(5)}</td>
+                  </tr>
+                  {ext.altitude != null && (
+                    <tr>
+                      <td style={{ color: "#9ca3af", paddingRight: "8px" }}>Altitude</td>
+                      <td style={{ color: "#e0e0e0" }}>{ext.altitude} m ({Math.round(ext.altitude * 3.281)} ft)</td>
+                    </tr>
+                  )}
+                  {ext.precision != null && (
+                    <tr>
+                      <td style={{ color: "#9ca3af", paddingRight: "8px" }}>Precision</td>
+                      <td style={{ color: "#e0e0e0" }}>
+                        {ext.precision} {ext.precision <= 12 ? "⚠ low — approx location" : ""}
+                      </td>
+                    </tr>
+                  )}
+                  {ext.neighbor_count != null && (
+                    <tr>
+                      <td style={{ color: "#9ca3af", paddingRight: "8px" }}>Heard by</td>
+                      <td style={{ color: "#e0e0e0" }}>{ext.neighbor_count} node{ext.neighbor_count !== 1 ? "s" : ""}</td>
+                    </tr>
+                  )}
+                  {ext.last_seen && (
+                    <tr>
+                      <td style={{ color: "#9ca3af", paddingRight: "8px" }}>Last seen</td>
+                      <td style={{ color: "#e0e0e0" }}>
+                        {formatDistanceToNow(new Date(ext.last_seen), { addSuffix: true })}
+                      </td>
+                    </tr>
+                  )}
+                  {ext.noted_at && (
+                    <tr>
+                      <td style={{ color: "#9ca3af", paddingRight: "8px" }}>Synced</td>
+                      <td style={{ color: "#6b7280", fontSize: "10px" }}>
+                        {formatDistanceToNow(new Date(ext.noted_at), { addSuffix: true })}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              {/* Footer badge */}
+              <div style={{ marginTop: "6px", color: "#60a5fa", fontSize: "10px", borderTop: "1px solid #2d3748", paddingTop: "4px" }}>
+                EXTERNAL RELAY — mesh ally
+              </div>
             </div>
           </Popup>
           </CircleMarker>

@@ -85,14 +85,33 @@ export default function MapPage() {
       // Always fetch ally nodes — independent of whether guild nodes have locations
       const { data: extData } = await client
         .from("external_nodes")
-        .select("id, name, lat, lng");
+        .select("id, name, lat, lng, hw_model, role, altitude, precision, neighbor_count, last_seen, noted_at");
       setExternalNodes(
         (extData ?? []).map(
-          (e: { id: string; name: string | null; lat: number; lng: number }) => ({
+          (e: {
+            id: string;
+            name: string | null;
+            lat: number;
+            lng: number;
+            hw_model: string | null;
+            role: string | null;
+            altitude: number | null;
+            precision: number | null;
+            neighbor_count: number | null;
+            last_seen: string | null;
+            noted_at: string | null;
+          }) => ({
             id: e.id,
             name: e.name,
             lat: e.lat,
             lng: e.lng,
+            hw_model: e.hw_model,
+            role: e.role,
+            altitude: e.altitude,
+            precision: e.precision,
+            neighbor_count: e.neighbor_count,
+            last_seen: e.last_seen,
+            noted_at: e.noted_at,
           })
         )
       );
