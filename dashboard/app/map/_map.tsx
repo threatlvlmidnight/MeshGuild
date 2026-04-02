@@ -152,22 +152,22 @@ export default function MapView({
             center={[ext.lat, ext.lng]}
             radius={RF_RADIUS_M}
             pathOptions={{
-              color: "#94a3b8",
+              color: "#60a5fa",
               weight: 1,
-              opacity: 0.18,
-              fillColor: "#94a3b8",
-              fillOpacity: 0.03,
+              opacity: 0.22,
+              fillColor: "#60a5fa",
+              fillOpacity: 0.04,
             }}
           />
           <CircleMarker
             center={[ext.lat, ext.lng]}
             radius={11}
             pathOptions={{
-              color: "#94a3b8",
+              color: "#60a5fa",
               weight: 2,
               dashArray: "5 4",
-              fillColor: "#1e2535",
-              fillOpacity: 0.85,
+              fillColor: "#0d1b2e",
+              fillOpacity: 0.9,
             }}
           >
           <Popup>
@@ -182,10 +182,10 @@ export default function MapView({
                 lineHeight: "1.6",
               }}
             >
-              <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#94a3b8" }}>
+              <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#60a5fa" }}>
                 {ext.name ?? ext.id}
               </div>
-              <div style={{ color: "#94a3b8", fontSize: "11px" }}>EXTERNAL RELAY</div>
+              <div style={{ color: "#60a5fa", fontSize: "11px" }}>EXTERNAL RELAY</div>
               <div style={{ color: "#6b7280", fontSize: "10px", marginTop: "2px" }}>Not in guild — mesh ally</div>
             </div>
           </Popup>
