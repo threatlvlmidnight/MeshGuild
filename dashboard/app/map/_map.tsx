@@ -67,13 +67,15 @@ function makeNoiseTile(): HTMLCanvasElement {
   return c;
 }
 
-function FogLayer({ nodes }: { nodes: MapNodeData[] }) {
+function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNodes: ExternalNodeData[] }) {
   const map = useMap();
   const fogCanvasRef   = useRef<HTMLCanvasElement | null>(null);
   const noiseCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef         = useRef<number>(0);
   const nodesRef       = useRef(nodes);
-  nodesRef.current = nodes; // always fresh inside the rAF loop
+  const extNodesRef    = useRef(externalNodes);
+  nodesRef.current    = nodes;         // always fresh inside the rAF loop
+  extNodesRef.current = externalNodes;
 
   useEffect(() => {
     const noiseTile = makeNoiseTile();
@@ -154,9 +156,16 @@ function FogLayer({ nodes }: { nodes: MapNodeData[] }) {
       }
 
       // 3. Punch soft reveal holes (destination-out erases the dark overlay)
+      //    Both guild nodes (online) and ally nodes clear the static.
       ctx.globalCompositeOperation = "destination-out";
-      for (const node of online) {
-        const pt    = map.latLngToContainerPoint([node.lat, node.lng]);
+
+      const allRevealPoints: Array<{ lat: number; lng: number }> = [
+        ...online,
+        ...extNodesRef.current,
+      ];
+
+      for (const pt2d of allRevealPoints) {
+        const pt    = map.latLngToContainerPoint([pt2d.lat, pt2d.lng]);
         const inner = revealPx * 0.28;
         const grad  = ctx.createRadialGradient(pt.x, pt.y, inner, pt.x, pt.y, revealPx);
         grad.addColorStop(0,    "rgba(0,0,0,1)");
@@ -169,59 +178,60 @@ function FogLayer({ nodes }: { nodes: MapNodeData[] }) {
         ctx.fill();
       }
 
-      // 4. Edge glow ring at reveal boundary + subtle signal-lock tint
+      // 4. Edge glow rings + signal-lock tint
+      //    Guild nodes: green glow.  Ally nodes: blue glow.
       ctx.globalCompositeOperation = "source-over";
-      for (const node of online) {
-        const pt = map.latLngToContainerPoint([node.lat, node.lng]);
 
-        // Glowing green halo at the boundary
+      function drawGlow(lat: number, lng: number, rgb: string) {
+        const pt = map.latLngToContainerPoint([lat, lng]);
         const glow = ctx.createRadialGradient(
           pt.x, pt.y, revealPx * 0.68,
           pt.x, pt.y, revealPx * 1.12
         );
-        glow.addColorStop(0,   "rgba(0,255,136,0)");
-        glow.addColorStop(0.3, "rgba(0,255,136,0.34)");
-        glow.addColorStop(0.6, "rgba(0,255,136,0.18)");
-        glow.addColorStop(1,   "rgba(0,255,136,0)");
+        glow.addColorStop(0,   `rgba(${rgb},0)`);
+        glow.addColorStop(0.3, `rgba(${rgb},0.34)`);
+        glow.addColorStop(0.6, `rgba(${rgb},0.18)`);
+        glow.addColorStop(1,   `rgba(${rgb},0)`);
         ctx.fillStyle = glow;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, revealPx * 1.12, 0, Math.PI * 2);
         ctx.fill();
 
-        // Subtle green cast at signal centre — "locked" feel
         const tint = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, revealPx * 0.42);
-        tint.addColorStop(0, "rgba(0,255,136,0.08)");
-        tint.addColorStop(1, "rgba(0,255,136,0)");
+        tint.addColorStop(0, `rgba(${rgb},0.08)`);
+        tint.addColorStop(1, `rgba(${rgb},0)`);
         ctx.fillStyle = tint;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, revealPx * 0.42, 0, Math.PI * 2);
         ctx.fill();
       }
 
+      for (const node of online) drawGlow(node.lat, node.lng, "0,255,136");
+      for (const ext of extNodesRef.current) drawGlow(ext.lat, ext.lng, "96,165,250");
+
       // 5. Sonar ping rings — two staggered rings per node, phase offset by position
-      for (const node of online) {
-        const pt = map.latLngToContainerPoint([node.lat, node.lng]);
-        // Deterministic per-node phase offset so nodes don't all pulse together
-        const phaseOffset = ((node.lat * 997 + node.lng * 1009) * 1000) % PING_PERIOD_MS;
+      //    Guild: green rings.  Ally: blue rings.
+      function drawPings(lat: number, lng: number, rgb: string) {
+        const pt = map.latLngToContainerPoint([lat, lng]);
+        const phaseOffset = ((lat * 997 + lng * 1009) * 1000) % PING_PERIOD_MS;
 
         for (const half of [0, 0.5] as const) {
           const t        = ((now + phaseOffset + half * PING_PERIOD_MS) % PING_PERIOD_MS) / PING_PERIOD_MS;
           const progress = Math.min(t * (PING_PERIOD_MS / PING_DURATION_MS), 1);
           if (progress >= 1) continue;
-
-          // Ease-out so ring decelerates as it expands
           const eased   = 1 - Math.pow(1 - progress, 2);
           const pingR   = revealPx * 0.06 + revealPx * 1.18 * eased;
           const opacity = (1 - eased) * (half === 0 ? 0.58 : 0.30);
-          const lw      = half === 0 ? 1.5 : 1;
-
-          ctx.strokeStyle = `rgba(0,255,136,${opacity.toFixed(3)})`;
-          ctx.lineWidth   = lw;
+          ctx.strokeStyle = `rgba(${rgb},${opacity.toFixed(3)})`;
+          ctx.lineWidth   = half === 0 ? 1.5 : 1;
           ctx.beginPath();
           ctx.arc(pt.x, pt.y, pingR, 0, Math.PI * 2);
           ctx.stroke();
         }
       }
+
+      for (const node of online) drawPings(node.lat, node.lng, "0,255,136");
+      for (const ext of extNodesRef.current) drawPings(ext.lat, ext.lng, "96,165,250");
 
       rafRef.current = requestAnimationFrame(draw);
     }
@@ -275,7 +285,7 @@ export default function MapView({
         maxZoom={19}
       />
 
-      {fogEnabled && <FogLayer nodes={nodes} />}
+      {fogEnabled && <FogLayer nodes={nodes} externalNodes={externalNodes} />}
 
       {/* Ally/external relay nodes — visible dashed markers with range ring */}
       {externalNodes.map((ext) => (
