@@ -27,7 +27,11 @@ export interface MapNodeData {
 }
 
 const OKC_CENTER: [number, number] = [35.4676, -97.5164];
-const RF_RADIUS_M = 8046; // ~5 miles — approx LoRa range halo
+// OKC range estimate: T-Beam/Heltec stock rubber duck (2.15 dBi), 17 dBm Tx,
+// LongFast SF11 sensitivity −126 dBm → 143 dB link budget.
+// Suburban flat-terrain path loss n≈2.8 → ~4.5 km. Rounded to 4 km for
+// conservative desk-level indoor placement in OKC metro.
+const RF_RADIUS_M = 4000;
 
 // ── Fog of War ──────────────────────────────────────────────────────────────
 // Canvas layer that covers the map with a dark overlay and punches soft-edged
@@ -140,20 +144,32 @@ export default function MapView({
 
       {fogEnabled && <FogLayer nodes={nodes} />}
 
-      {/* Ally/external relay nodes — gray dashed markers */}
+      {/* Ally/external relay nodes — visible dashed markers with range ring */}
       {externalNodes.map((ext) => (
-        <CircleMarker
-          key={ext.id}
-          center={[ext.lat, ext.lng]}
-          radius={6}
-          pathOptions={{
-            color: "#6b7280",
-            weight: 1.5,
-            dashArray: "4 3",
-            fillColor: "#2a2f3a",
-            fillOpacity: 0.7,
-          }}
-        >
+        <span key={ext.id}>
+          {/* Faint range ring — same 4km estimate as guild nodes */}
+          <Circle
+            center={[ext.lat, ext.lng]}
+            radius={RF_RADIUS_M}
+            pathOptions={{
+              color: "#94a3b8",
+              weight: 1,
+              opacity: 0.18,
+              fillColor: "#94a3b8",
+              fillOpacity: 0.03,
+            }}
+          />
+          <CircleMarker
+            center={[ext.lat, ext.lng]}
+            radius={11}
+            pathOptions={{
+              color: "#94a3b8",
+              weight: 2,
+              dashArray: "5 4",
+              fillColor: "#1e2535",
+              fillOpacity: 0.85,
+            }}
+          >
           <Popup>
             <div
               style={{
@@ -166,14 +182,15 @@ export default function MapView({
                 lineHeight: "1.6",
               }}
             >
-              <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#6b7280" }}>
+              <div style={{ fontWeight: "bold", marginBottom: "4px", color: "#94a3b8" }}>
                 {ext.name ?? ext.id}
               </div>
-              <div style={{ color: "#6b7280", fontSize: "11px" }}>EXTERNAL RELAY</div>
-              <div style={{ color: "#4b5563", fontSize: "10px", marginTop: "2px" }}>Not in guild — mesh ally</div>
+              <div style={{ color: "#94a3b8", fontSize: "11px" }}>EXTERNAL RELAY</div>
+              <div style={{ color: "#6b7280", fontSize: "10px", marginTop: "2px" }}>Not in guild — mesh ally</div>
             </div>
           </Popup>
-        </CircleMarker>
+          </CircleMarker>
+        </span>
       ))}
 
       {nodes.map((node) => (
