@@ -621,7 +621,7 @@ export default function NodeDetail() {
                   contentStyle={{ background: "#0d0f14", border: "1px solid #333", borderRadius: 4, fontFamily: "monospace", fontSize: 11 }}
                   labelStyle={{ color: "#00c8ff" }}
                   itemStyle={{ color: "#00c8ff" }}
-                  formatter={(v: number) => [`${v} node${v !== 1 ? "s" : ""}`, "Heard"]}
+                  formatter={(v) => [`${v} node${v !== 1 ? "s" : ""}`, "Heard"]}
                 />
                 <Bar dataKey="peers" radius={[2, 2, 0, 0]}>
                   {peerStats.map((entry, idx) => (
