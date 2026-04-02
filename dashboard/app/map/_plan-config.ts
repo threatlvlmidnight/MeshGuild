@@ -25,14 +25,14 @@ export const PROFILES: Record<HardwareProfile, ProfileConfig> = {
   relay: {
     label: "Outdoor Relay",
     description: "SenseCAP / RAK, outdoor enclosure, elevated mount",
-    rangeM: 20_000,
+    rangeM: 8_000,  // OKC suburban rooftop — buildings + trees cap practical range
     color: "#f59e0b", // amber
     linkBudgetDb: 156, // 27 dBm Tx + 126 dBm sensitivity + 3 dBi gain
   },
   fixed: {
     label: "High-Power Fixed",
     description: "T-Beam + 8 dBi yagi, rooftop or tower mount",
-    rangeM: 60_000,
+    rangeM: 18_000, // OKC flat terrain — yagi gain helps but suburban clutter limits to ~18km
     color: "#ef4444", // red
     linkBudgetDb: 161, // 27 dBm Tx + 126 dBm sensitivity + 8 dBi gain
   },
