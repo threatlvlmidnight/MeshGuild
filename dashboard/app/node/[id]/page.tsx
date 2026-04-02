@@ -232,25 +232,58 @@ export default function NodeDetail() {
 
   function fuzzCoord() { return (Math.random() - 0.5) * 0.018; } // ~1km offset
 
+  async function saveLocation(lat: number, lng: number): Promise<boolean> {
+    if (!profile) return false;
+    const client = getSupabase();
+
+    // Check if a row already exists for this node
+    const { data: existing } = await client
+      .from("node_locations")
+      .select("id")
+      .eq("node_id", nodeId)
+      .maybeSingle();
+
+    let writeError: { message: string } | null = null;
+
+    if (existing) {
+      const { error } = await client
+        .from("node_locations")
+        .update({ lat, lng, opt_in: true, set_by: profile.id })
+        .eq("node_id", nodeId);
+      writeError = error;
+    } else {
+      const { error } = await client
+        .from("node_locations")
+        .insert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id });
+      writeError = error;
+    }
+
+    if (writeError) {
+      toast.error("Failed to save pin: " + writeError.message);
+      return false;
+    }
+
+    // Re-fetch to hydrate state (avoids RLS read-back issues with upsert)
+    const { data: fresh } = await client
+      .from("node_locations")
+      .select("*")
+      .eq("node_id", nodeId)
+      .single();
+
+    if (fresh) setNodeLocation(fresh as NodeLocation);
+    return true;
+  }
+
   async function handleUseApproximateLocation() {
     if (!profile) return;
     setSavingLocation(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const lat = pos.coords.latitude + fuzzCoord();
-        const lng = pos.coords.longitude + fuzzCoord();
-        const client = getSupabase();
-        const { data, error } = await client
-          .from("node_locations")
-          .upsert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id }, { onConflict: "node_id" })
-          .select()
-          .single();
-        if (error) {
-          toast.error("Failed to save location: " + error.message);
-        } else if (data) {
-          setNodeLocation(data as NodeLocation);
-          toast.success("Grid position set");
-        }
+        const ok = await saveLocation(
+          pos.coords.latitude + fuzzCoord(),
+          pos.coords.longitude + fuzzCoord()
+        );
+        if (ok) toast.success("Grid position set");
         setSavingLocation(false);
       },
       () => {
@@ -270,18 +303,8 @@ export default function NodeDetail() {
       return;
     }
     setSavingLocation(true);
-    const lat = parsedLat + fuzzCoord();
-    const lng = parsedLng + fuzzCoord();
-    const client = getSupabase();
-    const { data, error } = await client
-      .from("node_locations")
-      .upsert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id }, { onConflict: "node_id" })
-      .select()
-      .single();
-    if (error) {
-      toast.error("Failed to save pin: " + error.message);
-    } else if (data) {
-      setNodeLocation(data as NodeLocation);
+    const ok = await saveLocation(parsedLat + fuzzCoord(), parsedLng + fuzzCoord());
+    if (ok) {
       setLocationMode("idle");
       toast.success("Pin saved — location on the guild map");
     }
