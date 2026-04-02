@@ -1,178 +1,243 @@
-"""antenna_test.py — Compare antenna signal quality for a guild node.
+"""antenna_test.py — Compare antenna signal quality using meshmap.net heard-by data.
 
-Polls the telemetry table in two phases (BASELINE → TEST) and prints
-a side-by-side comparison of RSSI and SNR statistics.
+WHY NOT RSSI FROM SUPABASE:
+    Your node talks to the MQTT collector directly (WiFi/serial bridge), so
+    packets arrive with rssi=null. RSSI/SNR only appears when another Meshtastic
+    node receives your transmission over the air and relays it. With a single
+    guild node you need an external signal source.
+
+METHOD:
+    meshmap.net passively tracks which external nodes have heard your node
+    and when. A better antenna means more nodes hear you, more recently.
+
+    Two metrics:
+      heard_by  — how many distinct external nodes heard you in the last hour
+      freshest  — how recently the most recent heard timestamp was
 
 Usage:
     python3 -m bots.antenna_test
 
 Workflow:
-    1. Run the script — it starts collecting BASELINE readings.
-    2. Let it run for 2–5 minutes so packets accumulate.
-    3. Press Enter → marks the switchover point.
-    4. Swap antenna, let it run another 2–5 minutes.
-    5. Press Enter again → prints the final comparison and exits.
-
-Metrics:
-    RSSI  — how loud your node was (dBm, less negative = stronger signal)
-    SNR   — signal vs noise ratio (dB, higher = cleaner signal)
+    1. Script takes a BASELINE snapshot from meshmap.net.
+    2. Swap the antenna.
+    3. Wait ~3-5 min for the mesh to update, press Enter.
+    4. Script takes a TEST snapshot and prints the comparison.
 
 Environment (bots/.env):
-    SUPABASE_URL           — Supabase project URL
-    SUPABASE_SERVICE_KEY   — service-role key
-    ANTENNA_NODE_ID        — node to monitor (default: !02ee16c8 / UFN1)
-    ANTENNA_POLL_SEC       — poll interval in seconds (default: 20)
+    ANTENNA_NODE_ID  — hex node ID (default: !02ee16c8 / UFN1)
+    ANTENNA_POLL_SEC — seconds between live status polls (default: 30)
 """
 
 import os
 import sys
-import time
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import requests
 from dotenv import load_dotenv
-from supabase import create_client, Client
 
 load_dotenv(Path(__file__).parent / ".env")
 
-SUPABASE_URL        = os.environ.get("SUPABASE_URL", "")
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-NODE_ID             = os.environ.get("ANTENNA_NODE_ID", "!02ee16c8")
-POLL_SEC            = int(os.environ.get("ANTENNA_POLL_SEC", "20"))
+MESHMAP_URL     = "https://meshmap.net/nodes.json"
+REQUEST_TIMEOUT = 20
+USER_AGENT      = "MeshGuild AntennaTest (github.com/threatlvlmidnight/MeshGuild)"
 
-# ── Stats helpers ─────────────────────────────────────────────────────────────
+_RAW_ID = os.environ.get("ANTENNA_NODE_ID", "!02ee16c8").strip()
+if _RAW_ID.startswith("!"):
+    NODE_HEX = _RAW_ID[1:].lower()
+    NODE_DEC = str(int(NODE_HEX, 16))
+else:
+    NODE_DEC = _RAW_ID
+    NODE_HEX = f"{int(_RAW_ID):08x}"
 
-def _mean(values: list[float]) -> Optional[float]:
-    return sum(values) / len(values) if values else None
+NODE_ID_DISPLAY  = f"!{NODE_HEX}"
+POLL_SEC         = int(os.environ.get("ANTENNA_POLL_SEC", "30"))
+HEARD_WINDOW_SEC = 3600  # nodes that heard you within this window count
 
-def _fmt(val: Optional[float], unit: str, decimals: int = 1) -> str:
-    if val is None:
-        return "  n/a"
-    return f"{val:+.{decimals}f} {unit}"
 
-def print_stats(label: str, rssi_vals: list[int], snr_vals: list[float]) -> None:
-    n = len(rssi_vals)
-    if n == 0:
-        print(f"\n  {label}: no packets collected yet")
+def fetch_node_raw() -> Optional[dict]:
+    try:
+        resp = requests.get(MESHMAP_URL, timeout=REQUEST_TIMEOUT,
+                            headers={"User-Agent": USER_AGENT})
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"\n  ERROR fetching meshmap.net: {e}")
+        return None
+    return data.get(NODE_DEC) or data.get(int(NODE_DEC)) or None
+
+
+def take_snapshot(label: str) -> dict:
+    now  = datetime.now(timezone.utc)
+    node = fetch_node_raw()
+    if node is None:
+        return {"label": label, "timestamp": now, "heard_count": 0,
+                "total_seen": 0, "seen_by": {}, "freshest": None, "raw_found": False}
+
+    seen_by_raw: dict = node.get("seenBy", {})
+    seen_by: dict[str, datetime] = {}
+    for topic, ts_val in seen_by_raw.items():
+        try:
+            if isinstance(ts_val, (int, float)):
+                dt = datetime.fromtimestamp(ts_val, tz=timezone.utc)
+            else:
+                dt = datetime.fromisoformat(str(ts_val).replace("Z", "+00:00"))
+            seen_by[topic] = dt
+        except Exception:
+            pass
+
+    cutoff      = now.timestamp() - HEARD_WINDOW_SEC
+    heard_count = sum(1 for dt in seen_by.values() if dt.timestamp() >= cutoff)
+    freshest    = max(seen_by.values(), default=None) if seen_by else None
+
+    return {"label": label, "timestamp": now, "heard_count": heard_count,
+            "total_seen": len(seen_by), "seen_by": seen_by,
+            "freshest": freshest, "raw_found": True}
+
+
+def _age(dt: Optional[datetime]) -> str:
+    if dt is None:
+        return "never"
+    secs = (datetime.now(timezone.utc) - dt).total_seconds()
+    if secs < 60:
+        return f"{int(secs)}s ago"
+    if secs < 3600:
+        return f"{int(secs // 60)}m ago"
+    return f"{secs / 3600:.1f}h ago"
+
+
+def print_snapshot(snap: dict) -> None:
+    if not snap["raw_found"]:
+        print(f"\n  {snap['label']}: node not found on meshmap.net")
         return
+    print(f"\n  {snap['label']}")
+    print(f"    Heard by {snap['heard_count']} node(s) in last hour  "
+          f"(total ever seen: {snap['total_seen']})")
+    print(f"    Most recently heard: {_age(snap['freshest'])}")
+    if snap["seen_by"]:
+        sorted_seen = sorted(snap["seen_by"].items(), key=lambda x: x[1], reverse=True)
+        for topic, dt in sorted_seen[:6]:
+            short = topic.split("/")[-1] if "/" in topic else topic
+            print(f"      {short:32s}  {_age(dt)}")
 
-    avg_rssi = _mean(rssi_vals)
-    avg_snr  = _mean(snr_vals)
-    min_rssi = min(rssi_vals)
-    max_rssi = max(rssi_vals)
-    min_snr  = min(snr_vals)
-    max_snr  = max(snr_vals)
 
-    print(f"\n  {label}  ({n} packet{'s' if n != 1 else ''} sampled)")
-    print(f"    RSSI  avg {_fmt(avg_rssi, 'dBm')}   range [{min_rssi}, {max_rssi}] dBm")
-    print(f"    SNR   avg {_fmt(avg_snr,  'dB ')}   range [{min_snr:.1f}, {max_snr:.1f}] dB")
-
-# ── Data collection ───────────────────────────────────────────────────────────
-
-def fetch_since(client: Client, node_id: str, since_iso: str) -> tuple[list[int], list[float]]:
-    """Return (rssi_list, snr_list) for packets from node_id after since_iso."""
-    resp = (
-        client.table("telemetry")
-        .select("rssi, snr")
-        .eq("node_id", node_id)
-        .gte("timestamp", since_iso)
-        .not_.is_("rssi", "null")
-        .execute()
-    )
-    rssi_vals, snr_vals = [], []
-    for row in (resp.data or []):
-        if row.get("rssi") is not None:
-            rssi_vals.append(int(row["rssi"]))
-        if row.get("snr") is not None:
-            snr_vals.append(float(row["snr"]))
-    return rssi_vals, snr_vals
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-
-def main() -> None:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in bots/.env")
-        sys.exit(1)
-
-    client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
-    print(f"\n  ANTENNA TEST — node {NODE_ID}")
-    print( "  ════════════════════════════════════════")
-    print( "  Collecting BASELINE readings.")
-    print(f"  Polls every {POLL_SEC}s. Press Enter when ready to swap antenna.\n")
-
-    phase1_start = datetime.now(timezone.utc).isoformat()
-
-    # ── Phase 1: baseline ────────────────────────────────────────────────────
-    stop_event = threading.Event()
-
-    def poll_loop(since_ref: list[str], label: str) -> None:
-        while not stop_event.is_set():
-            rssi, snr = fetch_since(client, NODE_ID, since_ref[0])
-            sys.stdout.write(f"\r  [{label}]  {len(rssi)} pkts   RSSI avg: "
-                             f"{_fmt(_mean(rssi), 'dBm') if rssi else '  ---'}   "  # noqa: E501
-                             f"SNR avg: {_fmt(_mean(snr), 'dB') if snr else '  ---'}   ")
-            sys.stdout.flush()
-            stop_event.wait(POLL_SEC)
-
-    since_ref: list[str] = [phase1_start]
-    t = threading.Thread(target=poll_loop, args=(since_ref, "BASELINE"), daemon=True)
-    t.start()
-
-    input()  # Wait for user to press Enter
-
-    stop_event.set()
-    t.join()
-
-    baseline_rssi, baseline_snr = fetch_since(client, NODE_ID, phase1_start)
-    print_stats("BASELINE (old antenna)", baseline_rssi, baseline_snr)
-
-    # ── Phase 2: new antenna ─────────────────────────────────────────────────
-    print("\n  Swap antenna now. Press Enter to start collecting TEST readings.\n")
-    input()
-
-    phase2_start = datetime.now(timezone.utc).isoformat()
-    stop_event = threading.Event()
-    since_ref = [phase2_start]
-
-    t = threading.Thread(target=poll_loop, args=(since_ref, "TEST   "), daemon=True)
-    t.start()
-
-    print(f"  Collecting TEST readings. Press Enter when done.\n")
-    input()
-
-    stop_event.set()
-    t.join()
-
-    test_rssi, test_snr = fetch_since(client, NODE_ID, phase2_start)
-
-    # ── Final comparison ─────────────────────────────────────────────────────
+def print_comparison(baseline: dict, test: dict) -> None:
     print("\n  ════════════════════════════════════════")
     print("  RESULTS")
-    print_stats("BASELINE (old antenna)", baseline_rssi, baseline_snr)
-    print_stats("TEST     (new antenna)", test_rssi, test_snr)
+    print_snapshot(baseline)
+    print_snapshot(test)
 
-    avg_b_rssi = _mean(baseline_rssi)
-    avg_t_rssi = _mean(test_rssi)
-    avg_b_snr  = _mean(baseline_snr)
-    avg_t_snr  = _mean(test_snr)
+    if not baseline["raw_found"] or not test["raw_found"]:
+        print("\n  Cannot compare — one or both snapshots missing.")
+        return
 
-    if avg_b_rssi is not None and avg_t_rssi is not None:
-        delta_rssi = avg_t_rssi - avg_b_rssi
-        delta_snr  = (avg_t_snr or 0) - (avg_b_snr or 0)
-        print(f"\n  DELTA   RSSI {delta_rssi:+.1f} dBm   SNR {delta_snr:+.1f} dB")
-        if delta_rssi > 1 or delta_snr > 0.5:
-            print("  ✓  TEST antenna appears BETTER — keep it.")
-        elif delta_rssi < -1 or delta_snr < -0.5:
-            print("  ✗  TEST antenna appears WORSE — try the other one or revert.")
-        else:
-            print("  ~  Results are within noise margin — antennas are equivalent.")
-    else:
-        print("\n  Not enough data in one or both phases to compare.")
+    delta       = test["heard_count"] - baseline["heard_count"]
+    b_fresh     = baseline["freshest"]
+    t_fresh     = test["freshest"]
+    delta_fresh = (t_fresh - b_fresh).total_seconds() if b_fresh and t_fresh else None
 
+    print(f"\n  DELTA   heard_by {delta:+d} node(s)", end="")
+    if delta_fresh is not None:
+        print(f"   freshest {delta_fresh / 60:+.1f} min", end="")
     print()
+
+    if delta > 0:
+        print("  BETTER — more nodes are hearing you. Keep this antenna.")
+    elif delta < 0:
+        print("  WORSE  — fewer nodes heard you. Revert or try the other.")
+    else:
+        print("  SAME   — equivalent heard-by count. Try the other antenna,")
+        print("           or compare freshest timestamps above.")
+    print()
+
+
+def live_poll(stop_event: threading.Event) -> None:
+    while not stop_event.is_set():
+        snap = take_snapshot("live")
+        sys.stdout.write(
+            f"\r  heard_by: {snap['heard_count']} node(s)   "
+            f"freshest: {_age(snap['freshest'])}   "
+        )
+        sys.stdout.flush()
+        stop_event.wait(POLL_SEC)
+
+
+def main() -> None:
+    print(f"\n  ANTENNA TEST — {NODE_ID_DISPLAY}")
+    print( "  ════════════════════════════════════════")
+    print( "  Signal source: meshmap.net heard-by count")
+    print( "  (Your collector RSSI is null — node talks directly to the")
+    print( "   MQTT broker, not via RF relay. meshmap.net tracks who")
+    print( "   actually hears you over the air.)\n")
+
+    print("  Checking meshmap.net...", end=" ", flush=True)
+    node = fetch_node_raw()
+    if node is None:
+        print("NOT FOUND")
+        print(f"\n  Node {NODE_ID_DISPLAY} (decimal: {NODE_DEC}) is not on meshmap.net.")
+        print()
+        print("  This means no public community gateway is picking up your")
+        print("  transmissions over RF. You are your own only receiver right now.")
+        print()
+        print("  ── To test antenna quality without a second node ─────────────")
+        print("  Use the Meshtastic phone app (connect via BT to your node):")
+        print("    1. Open the app → Nodes tab")
+        print("    2. Tap any visible neighbor node → Long press → Traceroute")
+        print("    3. The traceroute response shows the RSSI/SNR your signal")
+        print("       arrived at on each hop. Swap antenna, repeat, compare.")
+        print()
+        print("  ── To use this script in the future ────────────────────────")
+        print("  Once a second guild node joins the mesh, it will appear in")
+        print("  telemetry with non-null RSSI (it hears your node over RF).")
+        print("  The script can then compare before/after readings.")
+        print()
+        sys.exit(1)
+
+    seen_count = len(node.get("seenBy", {}))
+    print(f"found  ({seen_count} node(s) in seenBy)\n")
+
+    print("  Taking BASELINE snapshot (current antenna)...")
+    baseline = take_snapshot("BASELINE (old antenna)")
+    print_snapshot(baseline)
+
+    print("\n  Swap antenna now.")
+    print("  Wait ~3-5 min after swapping for the mesh to update, then press Enter.")
+    input("  Press Enter to start live monitoring...\n")
+
+    stop_event = threading.Event()
+    t = threading.Thread(target=live_poll, args=(stop_event,), daemon=True)
+    t.start()
+    input()
+    stop_event.set()
+    t.join()
+    print()
+
+    print("  Taking TEST snapshot (new antenna)...")
+    test = take_snapshot("TEST (new antenna)")
+    print_comparison(baseline, test)
+
+    print("  Taking BASELINE snapshot (current antenna)...")
+    baseline = take_snapshot("BASELINE (old antenna)")
+    print_snapshot(baseline)
+
+    print("\n  Swap antenna now.")
+    print("  Wait ~3-5 min after swapping for the mesh to update, then press Enter.")
+    input("  Press Enter to start live monitoring...\n")
+
+    stop_event = threading.Event()
+    t = threading.Thread(target=live_poll, args=(stop_event,), daemon=True)
+    t.start()
+    input()
+    stop_event.set()
+    t.join()
+    print()
+
+    print("  Taking TEST snapshot (new antenna)...")
+    test = take_snapshot("TEST (new antenna)")
+    print_comparison(baseline, test)
+
 
 if __name__ == "__main__":
     main()
