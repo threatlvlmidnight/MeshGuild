@@ -111,8 +111,9 @@ export default function NodeDetail() {
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
   const [hasGridPresenceBadge, setHasGridPresenceBadge] = useState(false);
-  const [peerStats, setPeerStats] = useState<{ day: string; peers: number }[]>([]);
+  const [peerStats, setPeerStats] = useState<{ day: string; peers: number; nodes: string[] }[]>([]);
   const [recentPeers, setRecentPeers] = useState<{ nodeId: string; lastSeen: string; rssi: number | null }[]>([]);
+  const [selectedDayNodes, setSelectedDayNodes] = useState<{ day: string; nodes: string[] } | null>(null);
 
   useEffect(() => {
     const client = getSupabase();
@@ -221,7 +222,7 @@ export default function NodeDetail() {
       for (let i = 29; i >= 0; i--) {
         const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
         const key = d.toISOString().slice(0, 10);
-        peerDays.push({ day: key.slice(5), peers: peerByDay[key]?.size ?? 0 });
+        peerDays.push({ day: key.slice(5), peers: peerByDay[key]?.size ?? 0, nodes: Array.from(peerByDay[key] ?? []) });
       }
       setPeerStats(peerDays);
 
@@ -638,12 +639,22 @@ export default function NodeDetail() {
                   allowDecimals={false}
                 />
                 <Tooltip
-                  contentStyle={{ background: "#0d0f14", border: "1px solid #333", borderRadius: 4, fontFamily: "monospace", fontSize: 11 }}
-                  labelStyle={{ color: "#00c8ff" }}
-                  itemStyle={{ color: "#00c8ff" }}
-                  formatter={(v) => [`${v} node${v !== 1 ? "s" : ""}`, "Heard"]}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const nodes: string[] = (payload[0]?.payload as { nodes: string[] })?.nodes ?? [];
+                    return (
+                      <div style={{ background: "#0d0f14", border: "1px solid #333", borderRadius: 4, padding: "8px 10px", fontFamily: "monospace", fontSize: 11, maxWidth: 220 }}>
+                        <div style={{ color: "#00c8ff", marginBottom: 6 }}>{label} — {nodes.length} node{nodes.length !== 1 ? "s" : ""}</div>
+                        {nodes.length === 0 ? (
+                          <div style={{ color: "#555" }}>No nodes heard</div>
+                        ) : (
+                          nodes.map((n) => <div key={n} style={{ color: "#aaa" }}>{n}</div>)
+                        )}
+                      </div>
+                    );
+                  }}
                 />
-                <Bar dataKey="peers" radius={[2, 2, 0, 0]}>
+                <Bar dataKey="peers" radius={[2, 2, 0, 0]} style={{ cursor: "pointer" }} onClick={(data: { day: string; nodes: string[] }) => setSelectedDayNodes(data.nodes.length > 0 ? { day: data.day, nodes: data.nodes } : null)}>
                   {peerStats.map((entry, idx) => (
                     <Cell
                       key={idx}
@@ -653,6 +664,23 @@ export default function NodeDetail() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+
+            {/* Clicked-day node list */}
+            {selectedDayNodes && (
+              <div className="mt-3 border-t border-terminal-border pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-terminal-muted text-[10px] font-mono uppercase tracking-widest">
+                    {selectedDayNodes.day} — {selectedDayNodes.nodes.length} node{selectedDayNodes.nodes.length !== 1 ? "s" : ""} heard
+                  </div>
+                  <button onClick={() => setSelectedDayNodes(null)} className="text-terminal-muted text-[10px] font-mono hover:text-foreground">✕</button>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {selectedDayNodes.nodes.map((n) => (
+                    <Link key={n} href={`/node/${n}`} className="text-terminal-cyan text-xs font-mono hover:underline">{n}</Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Recent peer list */}
             {recentPeers.length > 0 && (
