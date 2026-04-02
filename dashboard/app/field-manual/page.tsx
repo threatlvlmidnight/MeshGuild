@@ -439,6 +439,137 @@ const SECTIONS: Section[] = [
 ];
 
 export default function FieldManualPage() {
+  function openPrint() {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>The Field Manual — The Signal</title>
+<style>
+  body { font-family: Georgia, serif; max-width: 680px; margin: 40px auto; padding: 0 24px; color: #111; background: #fff; font-size: 12pt; }
+  h1 { font-family: monospace; font-size: 20pt; border-bottom: 2px solid #111; padding-bottom: 6px; margin-bottom: 4px; }
+  h2 { font-family: monospace; font-size: 13pt; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin: 28px 0 10px; }
+  p { margin: 0 0 8px; line-height: 1.5; }
+  ul, ol { margin: 0 0 12px 20px; }
+  li { margin-bottom: 4px; line-height: 1.5; }
+  table { border-collapse: collapse; width: 100%; font-family: monospace; font-size: 11pt; margin: 8px 0; }
+  td { padding: 4px 8px 4px 0; vertical-align: top; }
+  td:first-child { color: #555; width: 40%; }
+  tr { border-bottom: 1px solid #eee; }
+  .sub { color: #555; font-size: 10pt; }
+  .mono { font-family: monospace; }
+  hr { border: none; border-top: 1px solid #ccc; margin: 32px 0 12px; }
+  .footer { text-align: center; font-family: monospace; font-size: 9pt; color: #888; }
+  em { font-style: italic; color: #333; }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+<h1>THE FIELD MANUAL</h1>
+<p class="sub mono">Operator's guide to The Signal &mdash; meshguild.vercel.app</p>
+
+<h2>WHAT IS THE SIGNAL</h2>
+<p>The Signal is a fraternal order of signal operators dedicated to building and maintaining a decentralized Meshtastic mesh communication network.</p>
+<p>Our adversary is The Silence &mdash; the absence that grows when the mesh goes dark. Every node online pushes back The Silence. Every operator who maintains their signal strengthens the order.</p>
+<p>Through Renown, Commendations, and Relics, operators progress through the ranks &mdash; from Initiate to Grand Architect. The mesh is our shared infrastructure. The game is our shared purpose.</p>
+
+<h2>GETTING STARTED</h2>
+<p><strong>Requirements:</strong></p>
+<ul>
+  <li>A Meshtastic-compatible radio (Heltec V3, T-Beam, RAK, etc.)</li>
+  <li>The Meshtastic app (iOS / Android / desktop)</li>
+  <li>WiFi access for MQTT uplink (or a companion phone)</li>
+</ul>
+<p><strong>Steps:</strong></p>
+<ol>
+  <li>Create an account at meshguild.vercel.app/login</li>
+  <li>Flash your Meshtastic device with the latest firmware</li>
+  <li>Configure MQTT settings (see Device Configuration below)</li>
+  <li>Power on your node and send a test message</li>
+  <li>Complete the Rite of First Signal to claim your node</li>
+</ol>
+
+<h2>HARDWARE GUIDE</h2>
+<p>Any Meshtastic-compatible radio will work. Below are recommended boards.</p>
+<p><strong>FOUNDER'S BOARD &mdash; YELUFT ESP32 LoRa V3</strong><br/>
+ESP32-S3 &middot; SX1262 &middot; 915 MHz &middot; 0.96&rdquo; OLED &middot; WiFi + BLE &middot; Type-C &middot; battery interface. ~$22.<br/>
+Flash via flasher.meshtastic.org in Chrome. Amazon: amazon.com/dp/B0FT7WR12P</p>
+<p><strong>&#9312; PORTABLE &mdash; LILYGO T-Beam Supreme</strong><br/>
+ESP32-S3 &middot; SX1262 &middot; L76K GPS &middot; 18650 battery &middot; OLED. lilygo.cc/products/t-beam-s3-supreme</p>
+<p><strong>&#9313; RELAY &mdash; SenseCAP Solar Node P1-Pro</strong><br/>
+Solar-powered &middot; outdoor weatherproof &middot; GPS. amazon.com/dp/B0FMDHBWX8</p>
+<p><strong>&#9314; ALL-IN-ONE &mdash; LILYGO T-Deck</strong><br/>
+ESP32-S3 &middot; SX1262 &middot; built-in QWERTY keyboard &middot; 2.8&rdquo; display &middot; battery. lilygo.cc/products/t-deck</p>
+
+<h2>NODE SETUP: YELUFT V3</h2>
+<ol>
+  <li><strong>ATTACH ANTENNA FIRST</strong> &mdash; Screw the included 915 MHz whip antenna onto the connector before powering on. Running without an antenna can permanently damage the SX1262 radio.</li>
+  <li><strong>FLASH FIRMWARE</strong> &mdash; Open flasher.meshtastic.org in Chrome. Connect via USB-C. Select &ldquo;Heltec V3&rdquo; and click Flash.</li>
+  <li><strong>PAIR WITH APP</strong> &mdash; Install the Meshtastic app. Tap + &rarr; scan for Bluetooth &rarr; select your device (Meshtastic_XXXX). No PIN required.</li>
+  <li><strong>SET REGION</strong> &mdash; Radio Config &rarr; LoRa &rarr; Region &rarr; United States. The board will not transmit until this is set.</li>
+  <li><strong>CHOOSE BLUETOOTH OR WIFI</strong> &mdash; The V3 cannot use both simultaneously. WiFi recommended for fixed nodes. Configure under Radio Config &rarr; Network.</li>
+  <li><strong>CONFIGURE MQTT</strong> &mdash; See Device Configuration below.</li>
+  <li><strong>SEND A TEST MESSAGE</strong> &mdash; Send any message on the Primary channel (LongFast). It will appear in the guild's Mesh Shell within seconds.</li>
+</ol>
+
+<h2>DEVICE CONFIGURATION</h2>
+<p>Configure your Meshtastic device under Radio Config &rarr; MQTT:</p>
+<table>
+  <tr><td>MQTT Enabled</td><td>ON</td></tr>
+  <tr><td>MQTT Server</td><td>mqtt.meshtastic.org</td></tr>
+  <tr><td>Username</td><td>meshdev</td></tr>
+  <tr><td>Password</td><td>large4cats</td></tr>
+  <tr><td>Root Topic</td><td>msh/US/2/json</td></tr>
+  <tr><td>Encryption</td><td>ON</td></tr>
+  <tr><td>JSON Enabled</td><td>ON</td></tr>
+</table>
+<p class="sub">Note: Replace with your guild's private broker settings if self-hosting.</p>
+
+<h2>RITE OF FIRST SIGNAL</h2>
+<ol>
+  <li><strong>AUTHENTICATE</strong> &mdash; Create your operator account. You'll receive a NATO callsign automatically (e.g., BRAVO-42).</li>
+  <li><strong>CONFIGURE DEVICE</strong> &mdash; Set up your Meshtastic radio with the guild MQTT settings.</li>
+  <li><strong>FIRST TRANSMISSION</strong> &mdash; Power on your node and send a message. The network will detect your signal.</li>
+  <li><strong>CLAIM NODE</strong> &mdash; Select your node from the unclaimed list to bind it to your profile.</li>
+</ol>
+<p>Upon completion you'll receive +50 Renown and begin your journey as Initiate I.</p>
+
+<h2>RANKS &amp; PROGRESSION</h2>
+<p><strong>MEMBER RANKS (12):</strong> Initiate I&ndash;III &rarr; Signal Runner I&ndash;III &rarr; Relay Adept I&ndash;III &rarr; Circuit Warden I&ndash;III</p>
+<p><strong>ELDER RANKS (9):</strong> Sentinel I&ndash;III &rarr; Signal Marshal I&ndash;III &rarr; High Warden I&ndash;III</p>
+<p><strong>LEADER RANKS (7):</strong> Architect I&ndash;III &rarr; Grand Architect I&ndash;III &rarr; Founder</p>
+<p class="sub">Renown (XP) is earned through node uptime, packet volume, and completing Operations. Ranks auto-promote within your tier. Promotion to Elder or Leader requires manual elevation by guild leadership.</p>
+
+<h2>MESH SHELL</h2>
+<p>The Mesh Shell is the web interface to the mesh radio network. Messages travel over actual Meshtastic radio links.</p>
+<p><strong>Inbound:</strong> Mesh &rarr; MQTT &rarr; Collector &rarr; Realtime broadcast &rarr; Browser</p>
+<p><strong>Outbound:</strong> Browser &rarr; Queue &rarr; Collector &rarr; MQTT &rarr; Mesh radio</p>
+<p class="sub">Messages are cached locally in your browser and not stored on the server. CH0 = Primary/LongFast.</p>
+
+<h2>THE LORE</h2>
+<p><em>"In the beginning, there was only The Silence &mdash; a world of dead airwaves and severed links. Then came the first signal. A single packet, bouncing between two nodes, proving that communication could exist without permission, without infrastructure, without authority."</em></p>
+<p>The Signal is a self-aware techno-fraternal order. We use the pageantry of ranks, rites, and relics as a fun wrapper around a serious mission: maintaining resilient off-grid communications.</p>
+<table>
+  <tr><td>Members</td><td>Operators</td></tr>
+  <tr><td>XP</td><td>Renown</td></tr>
+  <tr><td>Achievements</td><td>Commendations</td></tr>
+  <tr><td>Cards</td><td>Relics</td></tr>
+  <tr><td>Challenges</td><td>Operations (Ops)</td></tr>
+  <tr><td>Leaderboard</td><td>The Registry</td></tr>
+  <tr><td>Node offline</td><td>"Going dark"</td></tr>
+  <tr><td>Adversary</td><td>The Silence</td></tr>
+</table>
+
+<hr/>
+<p class="footer">THE SIGNAL &mdash; meshguild.vercel.app &mdash; ${new Date().toLocaleDateString()}</p>
+<script>setTimeout(function(){ window.print(); }, 400);</script>
+</body>
+</html>`);
+    w.document.close();
+  }
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -457,7 +588,7 @@ export default function FieldManualPage() {
           </div>
           <div className="flex items-center gap-3 print:hidden">
             <button
-              onClick={() => window.open("/field-manual/print", "_blank")}
+              onClick={openPrint}
               className="text-xs font-mono text-terminal-muted hover:text-terminal-green transition-colors hidden sm:inline"
             >
               [ PRINT / PDF ]
