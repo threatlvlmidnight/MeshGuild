@@ -664,7 +664,7 @@ export default function NodeDetail() {
                     const isToday = age < 24 * 60 * 60 * 1000;
                     return (
                       <div key={p.nodeId} className="flex items-center justify-between text-xs font-mono">
-                        <span className={isToday ? "text-terminal-cyan" : "text-terminal-muted"}>{p.nodeId}</span>
+                        <Link href={`/node/${p.nodeId}`} className={`hover:underline ${isToday ? "text-terminal-cyan" : "text-terminal-muted"}`}>{p.nodeId}</Link>
                         <div className="flex items-center gap-3">
                           {p.rssi !== null && (
                             <span className="text-terminal-muted">{p.rssi} dBm</span>
