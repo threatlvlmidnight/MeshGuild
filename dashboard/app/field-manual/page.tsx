@@ -455,7 +455,7 @@ export default function FieldManualPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 print:hidden">
             <button
               onClick={() => window.print()}
               className="text-xs font-mono text-terminal-muted hover:text-terminal-green transition-colors hidden sm:inline"
@@ -473,7 +473,7 @@ export default function FieldManualPage() {
       </div>
 
       {/* Table of contents */}
-      <div className="max-w-3xl mx-auto px-4 py-4 border-b border-terminal-border">
+      <div className="max-w-3xl mx-auto px-4 py-4 border-b border-terminal-border print:hidden">
         <p className="text-[10px] font-mono text-terminal-muted uppercase tracking-widest mb-2">
           CONTENTS
         </p>

@@ -81,26 +81,77 @@ body {
 
 /* Print styles for Field Manual PDF export */
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
+  /* Force white page */
+  html, body {
+    background: #fff !important;
+    color: #111 !important;
+    font-size: 11pt !important;
   }
 
-  .scanline-overlay::before {
+  /* Hide chrome — nav, buttons, home link, TOC links, animations */
+  nav, header > *:not(.print-keep),
+  button,
+  a[href="/"],
+  a[href*="login"],
+  .scanline-overlay,
+  .scanline-overlay::before,
+  .scanline-overlay::after {
     display: none !important;
   }
 
-  .panel {
-    border-color: #ccc !important;
-    background: #f9f9f9 !important;
+  /* Kill all dark backgrounds */
+  *, *::before, *::after {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
   }
 
+  /* Readable text colors */
   * {
-    color: black !important;
+    color: #111 !important;
     border-color: #ccc !important;
   }
 
-  button, a[href="/"], a[href*="login"] {
-    display: none !important;
+  /* Panel borders so sections are distinguishable */
+  .panel, [class*="panel"] {
+    border: 1px solid #ccc !important;
+    padding: 12pt !important;
+    margin-bottom: 12pt !important;
+    break-inside: avoid;
+  }
+
+  /* Gold/green accent headings — map to dark grays */
+  h1, h2, h3, h4 {
+    color: #111 !important;
+    border-bottom: 1px solid #aaa !important;
+    padding-bottom: 4pt !important;
+    margin-bottom: 8pt !important;
+  }
+
+  /* Links — show URL inline for offline use */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    color: #555 !important;
+  }
+
+  /* Code blocks */
+  code, pre, [class*="font-mono"] {
+    font-family: "Courier New", monospace !important;
+    font-size: 9pt !important;
+  }
+
+  /* Page breaks */
+  section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Max width for readability */
+  .max-w-3xl {
+    max-width: 100% !important;
   }
 }
