@@ -33,78 +33,211 @@ const OKC_CENTER: [number, number] = [35.4676, -97.5164];
 // conservative desk-level indoor placement in OKC metro.
 const RF_RADIUS_M = 4000;
 
-// ── Fog of War ──────────────────────────────────────────────────────────────
-// Canvas layer that covers the map with a dark overlay and punches soft-edged
-// reveal holes at online node coverage zones using destination-out compositing.
+// ── Radio Noise Fog of War ───────────────────────────────────────────────────
+// Two-canvas animated system:
+//   noiseCanvas (z-447): scrolling green-tinted static grain — always visible
+//   fogCanvas   (z-449): deep navy overlay with reveal holes, edge glow,
+//                        scanlines, and sonar ping rings per online node.
+//
+// In dark areas:  navy overlay (87%) + noise grain (13%) = alive interference
+// In reveal area: only noise (13%) bleeds through — feels like a weak signal lock
+
+const NOISE_TILE_SIZE = 512;
+const PING_PERIOD_MS  = 4000;  // ms between leading edge of each sonar sweep
+const PING_DURATION_MS = 2600; // ms for one ring to expand and fade
+
+/** Generate a one-time offscreen noise tile — sparse green-tinted pixels */
+function makeNoiseTile(): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = NOISE_TILE_SIZE;
+  c.height = NOISE_TILE_SIZE;
+  const ctx = c.getContext("2d")!;
+  const img = ctx.createImageData(NOISE_TILE_SIZE, NOISE_TILE_SIZE);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (Math.random() > 0.80) {
+      const b = Math.random();
+      d[i]     = Math.floor(b * 8);           // R: near-black
+      d[i + 1] = Math.floor(b * 110 + 30);   // G: 30–140, green tint
+      d[i + 2] = Math.floor(b * 35);          // B: slight
+      d[i + 3] = Math.floor(Math.random() * 38 + 8); // A: 8–46
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
+
 function FogLayer({ nodes }: { nodes: MapNodeData[] }) {
   const map = useMap();
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fogCanvasRef   = useRef<HTMLCanvasElement | null>(null);
+  const noiseCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rafRef         = useRef<number>(0);
+  const nodesRef       = useRef(nodes);
+  nodesRef.current = nodes; // always fresh inside the rAF loop
 
   useEffect(() => {
-    const canvas = document.createElement("canvas");
-    canvas.style.cssText =
-      "position:absolute;top:0;left:0;pointer-events:none;z-index:450;";
-    map.getContainer().appendChild(canvas);
-    canvasRef.current = canvas;
+    const noiseTile = makeNoiseTile();
 
-    function redraw() {
+    // ── Noise canvas (below fog) ───────────────────────────────────────────
+    const nc = document.createElement("canvas");
+    nc.style.cssText =
+      "position:absolute;top:0;left:0;pointer-events:none;z-index:447;opacity:0.13;";
+    map.getContainer().appendChild(nc);
+    noiseCanvasRef.current = nc;
+
+    // ── Fog canvas (above noise, below Leaflet markers) ────────────────────
+    const fc = document.createElement("canvas");
+    fc.style.cssText =
+      "position:absolute;top:0;left:0;pointer-events:none;z-index:449;";
+    map.getContainer().appendChild(fc);
+    fogCanvasRef.current = fc;
+
+    const nctx = nc.getContext("2d")!;
+    const ctx  = fc.getContext("2d")!;
+
+    let scanPattern: CanvasPattern | null = null;
+    let lastW = 0;
+    let lastH = 0;
+
+    function buildScanPattern() {
+      const sc = document.createElement("canvas");
+      sc.width = 4; sc.height = 4;
+      const sx = sc.getContext("2d")!;
+      sx.fillStyle = "rgba(0,0,0,0.13)";
+      sx.fillRect(0, 0, 4, 1);
+      scanPattern = ctx.createPattern(sc, "repeat");
+    }
+
+    function draw() {
+      const now  = performance.now();
       const size = map.getSize();
-      canvas.width = size.x;
-      canvas.height = size.y;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      const W = size.x;
+      const H = size.y;
 
-      ctx.clearRect(0, 0, size.x, size.y);
+      // Resize only on actual dimension change (avoids expensive resets every frame)
+      if (W !== lastW || H !== lastH) {
+        nc.width = W; nc.height = H;
+        fc.width = W; fc.height = H;
+        lastW = W; lastH = H;
+        buildScanPattern();
+      }
 
-      // Dark fog fill
-      ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(8, 10, 16, 0.82)";
-      ctx.fillRect(0, 0, size.x, size.y);
-
-      // Punch soft-edged holes at online node positions
-      ctx.globalCompositeOperation = "destination-out";
-
-      const zoom = map.getZoom();
+      const zoom      = map.getZoom();
       const centerLat = map.getCenter().lat;
-      const metersPerPx =
-        (156543.03392 * Math.cos((centerLat * Math.PI) / 180)) /
-        Math.pow(2, zoom);
-      const revealPx = RF_RADIUS_M / metersPerPx;
+      const mPerPx    = (156543.03392 * Math.cos((centerLat * Math.PI) / 180)) / Math.pow(2, zoom);
+      const revealPx  = RF_RADIUS_M / mPerPx;
+      const online    = nodesRef.current.filter((n) => n.isOnline);
 
-      for (const node of nodes.filter((n) => n.isOnline)) {
-        const pt = map.latLngToContainerPoint([node.lat, node.lng]);
-        const inner = revealPx * 0.35;
+      // ── Noise canvas: slowly drifting static grain ─────────────────────
+      nctx.clearRect(0, 0, W, H);
+      const spd = 0.035; // px per ms
+      const ox  = (now * spd) % NOISE_TILE_SIZE;
+      const oy  = (now * spd * 0.58) % NOISE_TILE_SIZE;
+      for (let x = -ox; x < W + NOISE_TILE_SIZE; x += NOISE_TILE_SIZE) {
+        for (let y = -oy; y < H + NOISE_TILE_SIZE; y += NOISE_TILE_SIZE) {
+          nctx.drawImage(noiseTile, Math.round(x), Math.round(y));
+        }
+      }
 
-        const grad = ctx.createRadialGradient(
-          pt.x, pt.y, inner,
-          pt.x, pt.y, revealPx
-        );
-        grad.addColorStop(0, "rgba(0,0,0,1)");
-        grad.addColorStop(0.65, "rgba(0,0,0,0.95)");
-        grad.addColorStop(1, "rgba(0,0,0,0)");
+      // ── Fog canvas: dark overlay + effects ────────────────────────────
+      ctx.clearRect(0, 0, W, H);
 
+      // 1. Deep space navy base
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "rgba(3, 7, 20, 0.87)";
+      ctx.fillRect(0, 0, W, H);
+
+      // 2. Scanlines — subtle CRT/SDR interference feel
+      if (scanPattern) {
+        ctx.fillStyle = scanPattern;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // 3. Punch soft reveal holes (destination-out erases the dark overlay)
+      ctx.globalCompositeOperation = "destination-out";
+      for (const node of online) {
+        const pt    = map.latLngToContainerPoint([node.lat, node.lng]);
+        const inner = revealPx * 0.28;
+        const grad  = ctx.createRadialGradient(pt.x, pt.y, inner, pt.x, pt.y, revealPx);
+        grad.addColorStop(0,    "rgba(0,0,0,1)");
+        grad.addColorStop(0.55, "rgba(0,0,0,0.97)");
+        grad.addColorStop(0.85, "rgba(0,0,0,0.42)");
+        grad.addColorStop(1,    "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, revealPx, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
         ctx.fill();
       }
 
+      // 4. Edge glow ring at reveal boundary + subtle signal-lock tint
       ctx.globalCompositeOperation = "source-over";
+      for (const node of online) {
+        const pt = map.latLngToContainerPoint([node.lat, node.lng]);
+
+        // Glowing green halo at the boundary
+        const glow = ctx.createRadialGradient(
+          pt.x, pt.y, revealPx * 0.68,
+          pt.x, pt.y, revealPx * 1.12
+        );
+        glow.addColorStop(0,   "rgba(0,255,136,0)");
+        glow.addColorStop(0.3, "rgba(0,255,136,0.34)");
+        glow.addColorStop(0.6, "rgba(0,255,136,0.18)");
+        glow.addColorStop(1,   "rgba(0,255,136,0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, revealPx * 1.12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Subtle green cast at signal centre — "locked" feel
+        const tint = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, revealPx * 0.42);
+        tint.addColorStop(0, "rgba(0,255,136,0.08)");
+        tint.addColorStop(1, "rgba(0,255,136,0)");
+        ctx.fillStyle = tint;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, revealPx * 0.42, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 5. Sonar ping rings — two staggered rings per node, phase offset by position
+      for (const node of online) {
+        const pt = map.latLngToContainerPoint([node.lat, node.lng]);
+        // Deterministic per-node phase offset so nodes don't all pulse together
+        const phaseOffset = ((node.lat * 997 + node.lng * 1009) * 1000) % PING_PERIOD_MS;
+
+        for (const half of [0, 0.5] as const) {
+          const t        = ((now + phaseOffset + half * PING_PERIOD_MS) % PING_PERIOD_MS) / PING_PERIOD_MS;
+          const progress = Math.min(t * (PING_PERIOD_MS / PING_DURATION_MS), 1);
+          if (progress >= 1) continue;
+
+          // Ease-out so ring decelerates as it expands
+          const eased   = 1 - Math.pow(1 - progress, 2);
+          const pingR   = revealPx * 0.06 + revealPx * 1.18 * eased;
+          const opacity = (1 - eased) * (half === 0 ? 0.58 : 0.30);
+          const lw      = half === 0 ? 1.5 : 1;
+
+          ctx.strokeStyle = `rgba(0,255,136,${opacity.toFixed(3)})`;
+          ctx.lineWidth   = lw;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pingR, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      rafRef.current = requestAnimationFrame(draw);
     }
 
-    map.on("move", redraw);
-    map.on("resize", redraw);
-    redraw();
+    rafRef.current = requestAnimationFrame(draw);
 
     return () => {
-      map.off("move", redraw);
-      map.off("resize", redraw);
-      if (canvasRef.current && map.getContainer().contains(canvasRef.current)) {
-        map.getContainer().removeChild(canvasRef.current);
+      cancelAnimationFrame(rafRef.current);
+      for (const ref of [noiseCanvasRef, fogCanvasRef]) {
+        if (ref.current && map.getContainer().contains(ref.current)) {
+          map.getContainer().removeChild(ref.current);
+        }
+        ref.current = null;
       }
-      canvasRef.current = null;
     };
-  }, [map, nodes]);
+  }, [map]); // nodesRef handles updates; no need to re-mount on node changes
 
   return null;
 }
