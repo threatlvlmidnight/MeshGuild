@@ -162,11 +162,14 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
       const spd = 0.035;
       const ox  = (now * spd) % NOISE_TILE_SIZE;
       const oy  = (now * spd * 0.58) % NOISE_TILE_SIZE;
+      // Breathe the grain density over an ~8-second sine cycle (0.64–1.0 alpha)
+      nctx.globalAlpha = 0.82 + Math.sin(now * 0.00078) * 0.18;
       for (let x = -ox; x < BW + NOISE_TILE_SIZE; x += NOISE_TILE_SIZE) {
         for (let y = -oy; y < BH + NOISE_TILE_SIZE; y += NOISE_TILE_SIZE) {
           nctx.drawImage(noiseTile, Math.round(x), Math.round(y));
         }
       }
+      nctx.globalAlpha = 1;
 
       // ── Fog canvas: dark overlay + effects ────────────────────────────
       ctx.clearRect(0, 0, BW, BH);
@@ -176,13 +179,38 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
       ctx.fillStyle = "rgba(3, 7, 20, 0.70)";
       ctx.fillRect(0, 0, BW, BH);
 
-      // 2. Scanlines
+      // 2. Scanlines — drift slowly upward (one 4-px cycle ≈ every 0.67 s)
       if (scanPattern) {
+        const sOff = (now * 0.006) % 4;
+        ctx.save();
+        ctx.translate(0, sOff);
         ctx.fillStyle = scanPattern;
-        ctx.fillRect(0, 0, BW, BH);
+        ctx.fillRect(0, -sOff, BW, BH + 4);
+        ctx.restore();
       }
 
-      // 3. Punch soft reveal holes (destination-out erases the dark overlay)
+      // 3. Interference bands — two faint horizontal bands drifting through
+      //    the fog at different speeds. Only visible in dark fog zones;
+      //    the destination-out holes erase them in reveal areas too.
+      {
+        const bands: Array<[number, number, number]> = [
+          [0.014, 0,           0.055],  // faster, slightly brighter
+          [0.009, BH * 0.55,   0.038],  // slower, slightly dimmer
+        ];
+        for (const [speed, phase, peak] of bands) {
+          const bandY = ((now * speed + phase) % (BH + 160)) - 80;
+          const g = ctx.createLinearGradient(0, bandY - 70, 0, bandY + 70);
+          g.addColorStop(0,    `rgba(80,130,220,0)`);
+          g.addColorStop(0.35, `rgba(80,130,220,${(peak * 0.45).toFixed(3)})`);
+          g.addColorStop(0.5,  `rgba(80,130,220,${peak.toFixed(3)})`);
+          g.addColorStop(0.65, `rgba(80,130,220,${(peak * 0.45).toFixed(3)})`);
+          g.addColorStop(1,    `rgba(80,130,220,0)`);
+          ctx.fillStyle = g;
+          ctx.fillRect(0, Math.max(0, bandY - 70), BW, 140);
+        }
+      }
+
+      // 4. Punch soft reveal holes (destination-out erases the dark overlay)
       ctx.globalCompositeOperation = "destination-out";
 
       const allRevealPoints: Array<{ lat: number; lng: number }> = [
