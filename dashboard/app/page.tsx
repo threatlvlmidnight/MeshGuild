@@ -516,8 +516,8 @@ export default function Home() {
       const { data: nodeData } = await client.from("nodes").select("*").order("long_name");
       setNodes(nodeData ?? []);
 
-      // Operator count
-      const { count } = await client.from("profiles").select("id", { count: "exact", head: true }).eq("approved", true);
+      // Operator count — only profiles that have at least one node claimed
+      const { count } = await client.from("node_ownership").select("player_id", { count: "exact", head: true });
       setOperatorCount(count ?? 0);
 
       // Alerts only for authenticated users
