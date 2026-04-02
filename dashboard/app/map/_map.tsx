@@ -87,22 +87,27 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
   useEffect(() => {
     const noiseTile = makeNoiseTile();
 
-    // Append to leaflet-map-pane so canvas z-indexes share the same stacking
-    // context as Leaflet's own panes (popup pane = 700, marker = 600, etc.)
+    // Canvases live inside leaflet-map-pane so their z-indexes are in the same
+    // stacking context as Leaflet panes (popup=700 > canvas=449 > overlay=400 > tile=200).
+    // The pane is CSS-transformed during panning, so we:
+    //   1. Extend canvases by BUFFER px on each side to avoid edge gaps while panning.
+    //   2. Draw using latLngToLayerPoint (pane coordinate space) + BUFFER offset.
+    const BUFFER = 512;
+
     const mapPane = map.getContainer().querySelector(".leaflet-map-pane") as HTMLElement
                     ?? map.getContainer();
 
     // ── Noise canvas (below fog) ───────────────────────────────────────────
     const nc = document.createElement("canvas");
     nc.style.cssText =
-      "position:absolute;top:0;left:0;pointer-events:none;z-index:447;opacity:0.13;";
+      `position:absolute;top:${-BUFFER}px;left:${-BUFFER}px;pointer-events:none;z-index:447;opacity:0.13;`;
     mapPane.appendChild(nc);
     noiseCanvasRef.current = nc;
 
-    // ── Fog canvas (above noise, below Leaflet markers) ────────────────────
+    // ── Fog canvas (above noise, below Leaflet markers/popup) ─────────────
     const fc = document.createElement("canvas");
     fc.style.cssText =
-      "position:absolute;top:0;left:0;pointer-events:none;z-index:449;";
+      `position:absolute;top:${-BUFFER}px;left:${-BUFFER}px;pointer-events:none;z-index:449;`;
     mapPane.appendChild(fc);
     fogCanvasRef.current = fc;
 
@@ -122,16 +127,26 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
       scanPattern = ctx.createPattern(sc, "repeat");
     }
 
+    // Convert a lat/lng to canvas pixel coords within the buffered canvas.
+    // latLngToLayerPoint gives coords in the pane's own space; adding BUFFER
+    // shifts to the canvas's coordinate origin (offset -BUFFER,-BUFFER from pane).
+    function toPt(lat: number, lng: number) {
+      const lp = map.latLngToLayerPoint([lat, lng]);
+      return { x: lp.x + BUFFER, y: lp.y + BUFFER };
+    }
+
     function draw() {
       const now  = performance.now();
       const size = map.getSize();
       const W = size.x;
       const H = size.y;
+      const BW = W + 2 * BUFFER; // buffered canvas width
+      const BH = H + 2 * BUFFER; // buffered canvas height
 
-      // Resize only on actual dimension change (avoids expensive resets every frame)
+      // Resize only on actual dimension change
       if (W !== lastW || H !== lastH) {
-        nc.width = W; nc.height = H;
-        fc.width = W; fc.height = H;
+        nc.width = BW; nc.height = BH;
+        fc.width = BW; fc.height = BH;
         lastW = W; lastH = H;
         buildScanPattern();
       }
@@ -143,32 +158,31 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
       const online    = nodesRef.current.filter((n) => n.isOnline);
 
       // ── Noise canvas: slowly drifting static grain ─────────────────────
-      nctx.clearRect(0, 0, W, H);
-      const spd = 0.035; // px per ms
+      nctx.clearRect(0, 0, BW, BH);
+      const spd = 0.035;
       const ox  = (now * spd) % NOISE_TILE_SIZE;
       const oy  = (now * spd * 0.58) % NOISE_TILE_SIZE;
-      for (let x = -ox; x < W + NOISE_TILE_SIZE; x += NOISE_TILE_SIZE) {
-        for (let y = -oy; y < H + NOISE_TILE_SIZE; y += NOISE_TILE_SIZE) {
+      for (let x = -ox; x < BW + NOISE_TILE_SIZE; x += NOISE_TILE_SIZE) {
+        for (let y = -oy; y < BH + NOISE_TILE_SIZE; y += NOISE_TILE_SIZE) {
           nctx.drawImage(noiseTile, Math.round(x), Math.round(y));
         }
       }
 
       // ── Fog canvas: dark overlay + effects ────────────────────────────
-      ctx.clearRect(0, 0, W, H);
+      ctx.clearRect(0, 0, BW, BH);
 
       // 1. Deep space navy base
       ctx.globalCompositeOperation = "source-over";
       ctx.fillStyle = "rgba(3, 7, 20, 0.70)";
-      ctx.fillRect(0, 0, W, H);
+      ctx.fillRect(0, 0, BW, BH);
 
-      // 2. Scanlines — subtle CRT/SDR interference feel
+      // 2. Scanlines
       if (scanPattern) {
         ctx.fillStyle = scanPattern;
-        ctx.fillRect(0, 0, W, H);
+        ctx.fillRect(0, 0, BW, BH);
       }
 
       // 3. Punch soft reveal holes (destination-out erases the dark overlay)
-      //    Both guild nodes (online) and ally nodes clear the static.
       ctx.globalCompositeOperation = "destination-out";
 
       const allRevealPoints: Array<{ lat: number; lng: number }> = [
@@ -177,7 +191,7 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
       ];
 
       for (const pt2d of allRevealPoints) {
-        const pt    = map.latLngToContainerPoint([pt2d.lat, pt2d.lng]);
+        const pt    = toPt(pt2d.lat, pt2d.lng);
         const inner = revealPx * 0.28;
         const grad  = ctx.createRadialGradient(pt.x, pt.y, inner, pt.x, pt.y, revealPx);
         grad.addColorStop(0,    "rgba(0,0,0,1)");
@@ -191,11 +205,10 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
       }
 
       // 4. Edge glow rings + signal-lock tint
-      //    Guild nodes: green glow.  Ally nodes: blue glow.
       ctx.globalCompositeOperation = "source-over";
 
       function drawGlow(lat: number, lng: number, rgb: string) {
-        const pt = map.latLngToContainerPoint([lat, lng]);
+        const pt = toPt(lat, lng);
         const glow = ctx.createRadialGradient(
           pt.x, pt.y, revealPx * 0.78,
           pt.x, pt.y, revealPx * 0.98
@@ -221,10 +234,9 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
       for (const node of online) drawGlow(node.lat, node.lng, "0,255,136");
       for (const ext of extNodesRef.current) drawGlow(ext.lat, ext.lng, "96,165,250");
 
-      // 5. Sonar ping rings — two staggered rings per node, phase offset by position
-      //    Guild: green rings.  Ally: blue rings.
+      // 5. Sonar ping rings
       function drawPings(lat: number, lng: number, rgb: string) {
-        const pt = map.latLngToContainerPoint([lat, lng]);
+        const pt = toPt(lat, lng);
         const phaseOffset = ((lat * 997 + lng * 1009) * 1000) % PING_PERIOD_MS;
 
         for (const half of [0, 0.5] as const) {
