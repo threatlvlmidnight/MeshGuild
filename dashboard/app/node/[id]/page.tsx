@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { getSupabase, Node, Achievement, Card, Profile, NodeOwnership, NodeLocation, RARITY_COLORS, ACHIEVEMENT_LABELS } from "@/lib/supabase";
 import { LevelBadge, XpProgressBar } from "@/components/level-badge";
 import { formatDistanceToNow, format } from "date-fns";
@@ -239,12 +240,17 @@ export default function NodeDetail() {
         const lat = pos.coords.latitude + fuzzCoord();
         const lng = pos.coords.longitude + fuzzCoord();
         const client = getSupabase();
-        const { data } = await client
+        const { data, error } = await client
           .from("node_locations")
           .upsert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id }, { onConflict: "node_id" })
           .select()
           .single();
-        if (data) setNodeLocation(data as NodeLocation);
+        if (error) {
+          toast.error("Failed to save location: " + error.message);
+        } else if (data) {
+          setNodeLocation(data as NodeLocation);
+          toast.success("Grid position set");
+        }
         setSavingLocation(false);
       },
       () => {
@@ -257,17 +263,28 @@ export default function NodeDetail() {
 
   async function handleManualSave() {
     if (!profile || !manualLat || !manualLng) return;
+    const parsedLat = parseFloat(manualLat);
+    const parsedLng = parseFloat(manualLng);
+    if (isNaN(parsedLat) || isNaN(parsedLng)) {
+      toast.error("Enter valid lat/lng coordinates");
+      return;
+    }
     setSavingLocation(true);
-    const lat = parseFloat(manualLat) + fuzzCoord();
-    const lng = parseFloat(manualLng) + fuzzCoord();
+    const lat = parsedLat + fuzzCoord();
+    const lng = parsedLng + fuzzCoord();
     const client = getSupabase();
-    const { data } = await client
+    const { data, error } = await client
       .from("node_locations")
       .upsert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id }, { onConflict: "node_id" })
       .select()
       .single();
-    if (data) setNodeLocation(data as NodeLocation);
-    setLocationMode("idle");
+    if (error) {
+      toast.error("Failed to save pin: " + error.message);
+    } else if (data) {
+      setNodeLocation(data as NodeLocation);
+      setLocationMode("idle");
+      toast.success("Pin saved — location on the guild map");
+    }
     setSavingLocation(false);
   }
 
