@@ -99,6 +99,7 @@ CREATE OR REPLACE FUNCTION award_grid_presence_badge()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_player_id UUID;
@@ -110,7 +111,7 @@ BEGIN
 
   -- Find the node owner
   SELECT player_id INTO v_player_id
-  FROM node_ownership
+  FROM public.node_ownership
   WHERE node_id = NEW.node_id
   LIMIT 1;
 
@@ -119,7 +120,7 @@ BEGIN
   END IF;
 
   -- Award badge (idempotent — ignored if already earned)
-  INSERT INTO player_badges (player_id, badge_key, badge_label, awarded_by, note)
+  INSERT INTO public.player_badges (player_id, badge_key, badge_label, awarded_by, note)
   VALUES (
     v_player_id,
     'GRID_PRESENCE',
