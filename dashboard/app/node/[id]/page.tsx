@@ -218,7 +218,7 @@ export default function NodeDetail() {
         peerByDay[day].add(row.node_id);
       }
       // Fill last 30 days so chart has no gaps
-      const peerDays: { day: string; peers: number }[] = [];
+      const peerDays: { day: string; peers: number; nodes: string[] }[] = [];
       for (let i = 29; i >= 0; i--) {
         const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
         const key = d.toISOString().slice(0, 10);
