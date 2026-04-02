@@ -276,22 +276,32 @@ export default function NodeDetail() {
 
   async function handleUseApproximateLocation() {
     if (!profile) return;
+    if (!navigator.geolocation) {
+      setLocationMode("manual");
+      return;
+    }
     setSavingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const ok = await saveLocation(
-          pos.coords.latitude + fuzzCoord(),
-          pos.coords.longitude + fuzzCoord()
-        );
-        if (ok) toast.success("Grid position set");
-        setSavingLocation(false);
-      },
-      () => {
-        // Geolocation denied/unavailable — fall back to manual entry
-        setLocationMode("manual");
-        setSavingLocation(false);
-      }
-    );
+    try {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const ok = await saveLocation(
+            pos.coords.latitude + fuzzCoord(),
+            pos.coords.longitude + fuzzCoord()
+          );
+          if (ok) toast.success("Grid position set");
+          setSavingLocation(false);
+        },
+        () => {
+          // Geolocation denied/unavailable — fall back to manual entry
+          setLocationMode("manual");
+          setSavingLocation(false);
+        },
+        { timeout: 10000, enableHighAccuracy: false }
+      );
+    } catch {
+      setLocationMode("manual");
+      setSavingLocation(false);
+    }
   }
 
   async function handleManualSave() {
@@ -618,7 +628,7 @@ export default function NodeDetail() {
                     {savingLocation ? "UPDATING..." : "UPDATE"}
                   </button>
                   <button
-                    onClick={() => setLocationMode(locationMode === "manual" ? "idle" : "manual")}
+                    onClick={() => { setSavingLocation(false); setLocationMode(locationMode === "manual" ? "idle" : "manual"); }}
                     className="text-xs font-mono border border-terminal-border text-terminal-muted hover:text-terminal-dim px-3 py-1.5 rounded transition-colors"
                   >
                     MANUAL PIN
@@ -642,7 +652,7 @@ export default function NodeDetail() {
                   {savingLocation && locationMode === "idle" ? "LOCATING..." : "USE MY APPROXIMATE LOCATION"}
                 </button>
                 <button
-                  onClick={() => setLocationMode(locationMode === "manual" ? "idle" : "manual")}
+                  onClick={() => { setSavingLocation(false); setLocationMode(locationMode === "manual" ? "idle" : "manual"); }}
                   className="w-full text-xs font-mono border border-terminal-border text-terminal-muted hover:text-terminal-dim px-4 py-2 rounded transition-colors"
                 >
                   PLACE PIN MANUALLY
