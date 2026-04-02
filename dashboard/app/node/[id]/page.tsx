@@ -295,9 +295,14 @@ export default function NodeDetail() {
   }
 
   async function handleManualSave() {
-    if (!profile || !manualLat || !manualLng) return;
+    console.log("[SAVE PIN] clicked", { profile: !!profile, manualLat, manualLng, savingLocation });
+    if (!profile || !manualLat || !manualLng) {
+      console.log("[SAVE PIN] early return — missing profile/lat/lng");
+      return;
+    }
     const parsedLat = parseFloat(manualLat);
     const parsedLng = parseFloat(manualLng);
+    console.log("[SAVE PIN] parsed", { parsedLat, parsedLng });
     if (isNaN(parsedLat) || isNaN(parsedLng)) {
       toast.error("Enter valid lat/lng coordinates");
       return;
@@ -651,8 +656,8 @@ export default function NodeDetail() {
                   <div>
                     <label className="text-terminal-muted text-[10px] font-mono uppercase tracking-widest block mb-1">Latitude</label>
                     <input
-                      type="number"
-                      step="0.0001"
+                      type="text"
+                      inputMode="decimal"
                       value={manualLat}
                       onChange={(e) => setManualLat(e.target.value)}
                       placeholder="35.4676"
@@ -662,8 +667,8 @@ export default function NodeDetail() {
                   <div>
                     <label className="text-terminal-muted text-[10px] font-mono uppercase tracking-widest block mb-1">Longitude</label>
                     <input
-                      type="number"
-                      step="0.0001"
+                      type="text"
+                      inputMode="decimal"
                       value={manualLng}
                       onChange={(e) => setManualLng(e.target.value)}
                       placeholder="-97.5164"
