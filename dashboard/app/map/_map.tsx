@@ -87,18 +87,23 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
   useEffect(() => {
     const noiseTile = makeNoiseTile();
 
+    // Append to leaflet-map-pane so canvas z-indexes share the same stacking
+    // context as Leaflet's own panes (popup pane = 700, marker = 600, etc.)
+    const mapPane = map.getContainer().querySelector(".leaflet-map-pane") as HTMLElement
+                    ?? map.getContainer();
+
     // ── Noise canvas (below fog) ───────────────────────────────────────────
     const nc = document.createElement("canvas");
     nc.style.cssText =
       "position:absolute;top:0;left:0;pointer-events:none;z-index:447;opacity:0.13;";
-    map.getContainer().appendChild(nc);
+    mapPane.appendChild(nc);
     noiseCanvasRef.current = nc;
 
     // ── Fog canvas (above noise, below Leaflet markers) ────────────────────
     const fc = document.createElement("canvas");
     fc.style.cssText =
       "position:absolute;top:0;left:0;pointer-events:none;z-index:449;";
-    map.getContainer().appendChild(fc);
+    mapPane.appendChild(fc);
     fogCanvasRef.current = fc;
 
     const nctx = nc.getContext("2d")!;
@@ -248,8 +253,8 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
     return () => {
       cancelAnimationFrame(rafRef.current);
       for (const ref of [noiseCanvasRef, fogCanvasRef]) {
-        if (ref.current && map.getContainer().contains(ref.current)) {
-          map.getContainer().removeChild(ref.current);
+        if (ref.current && ref.current.parentNode) {
+          ref.current.parentNode.removeChild(ref.current);
         }
         ref.current = null;
       }

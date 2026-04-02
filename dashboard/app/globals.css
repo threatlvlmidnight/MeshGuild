@@ -114,9 +114,9 @@ body {
   box-shadow: 0 0 18px rgba(0, 255, 136, 0.12), 0 4px 24px rgba(0,0,0,0.7) !important;
 }
 
-/* Ensure popups always sit above fog canvases (z-448/450) */
+/* Ensure popups always sit above fog canvases */
 .leaflet-popup-pane {
-  z-index: 600 !important;
+  z-index: 700 !important;
 }
 
 /* Print styles for Field Manual PDF export */
