@@ -4,6 +4,8 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMap } from "react-leaflet";
 import { formatDistanceToNow } from "date-fns";
+import PlanLayer from "./_plan";
+import type { PlanNode, PoiResult } from "./_plan";
 
 export interface ExternalNodeData {
   id: string;
@@ -107,10 +109,22 @@ export default function MapView({
   nodes,
   fogEnabled,
   externalNodes = [],
+  planMode = false,
+  planNodes = [],
+  onPlanNodesChange,
+  selectedPlanNodeId = null,
+  onSelectPlanNode,
+  pois = [],
 }: {
   nodes: MapNodeData[];
   fogEnabled: boolean;
   externalNodes?: ExternalNodeData[];
+  planMode?: boolean;
+  planNodes?: PlanNode[];
+  onPlanNodesChange?: (nodes: PlanNode[]) => void;
+  selectedPlanNodeId?: string | null;
+  onSelectPlanNode?: (id: string | null) => void;
+  pois?: PoiResult[];
 }) {
   return (
     <MapContainer
@@ -228,6 +242,16 @@ export default function MapView({
           </CircleMarker>
         </span>
       ))}
+
+      {planMode && (
+        <PlanLayer
+          nodes={planNodes}
+          onNodesChange={onPlanNodesChange ?? (() => {})}
+          selectedNodeId={selectedPlanNodeId}
+          onSelectNode={onSelectPlanNode ?? (() => {})}
+          pois={pois}
+        />
+      )}
     </MapContainer>
   );
 }
