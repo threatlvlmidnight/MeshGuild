@@ -105,7 +105,7 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
       const sc = document.createElement("canvas");
       sc.width = 4; sc.height = 4;
       const sx = sc.getContext("2d")!;
-      sx.fillStyle = "rgba(0,0,0,0.13)";
+      sx.fillStyle = "rgba(0,0,0,0.10)";
       sx.fillRect(0, 0, 4, 1);
       scanPattern = ctx.createPattern(sc, "repeat");
     }
@@ -146,7 +146,7 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
 
       // 1. Deep space navy base
       ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(3, 7, 20, 0.87)";
+      ctx.fillStyle = "rgba(3, 7, 20, 0.70)";
       ctx.fillRect(0, 0, W, H);
 
       // 2. Scanlines — subtle CRT/SDR interference feel
