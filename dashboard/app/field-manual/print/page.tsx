@@ -4,7 +4,8 @@ import { useEffect } from "react";
 
 export default function FieldManualPrintPage() {
   useEffect(() => {
-    window.print();
+    const t = setTimeout(() => window.print(), 800);
+    return () => clearTimeout(t);
   }, []);
 
   return (
