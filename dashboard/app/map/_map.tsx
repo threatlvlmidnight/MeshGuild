@@ -189,24 +189,26 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
         ctx.restore();
       }
 
-      // 3. Interference bands — two faint horizontal bands drifting through
-      //    the fog at different speeds. Only visible in dark fog zones;
-      //    the destination-out holes erase them in reveal areas too.
+      // 3. Interference bands — two horizontal bands drifting through the fog.
+      //    Drawn full-height so gradient coords always match rect coords.
+      //    destination-out holes erase them automatically in reveal areas.
       {
         const bands: Array<[number, number, number]> = [
-          [0.014, 0,           0.055],  // faster, slightly brighter
-          [0.009, BH * 0.55,   0.038],  // slower, slightly dimmer
+          [0.018, 0,           0.16],  // faster, brighter
+          [0.011, BH * 0.55,   0.10],  // slower, dimmer
         ];
         for (const [speed, phase, peak] of bands) {
-          const bandY = ((now * speed + phase) % (BH + 160)) - 80;
-          const g = ctx.createLinearGradient(0, bandY - 70, 0, bandY + 70);
-          g.addColorStop(0,    `rgba(80,130,220,0)`);
-          g.addColorStop(0.35, `rgba(80,130,220,${(peak * 0.45).toFixed(3)})`);
-          g.addColorStop(0.5,  `rgba(80,130,220,${peak.toFixed(3)})`);
-          g.addColorStop(0.65, `rgba(80,130,220,${(peak * 0.45).toFixed(3)})`);
-          g.addColorStop(1,    `rgba(80,130,220,0)`);
+          // Continuous vertical scroll; wrap across full canvas + bleed
+          const bandY = ((now * speed + phase) % (BH + 200)) - 100;
+          const g = ctx.createLinearGradient(0, bandY - 90, 0, bandY + 90);
+          g.addColorStop(0,    `rgba(80,140,230,0)`);
+          g.addColorStop(0.3,  `rgba(80,140,230,${(peak * 0.4).toFixed(3)})`);
+          g.addColorStop(0.5,  `rgba(80,140,230,${peak.toFixed(3)})`);
+          g.addColorStop(0.7,  `rgba(80,140,230,${(peak * 0.4).toFixed(3)})`);
+          g.addColorStop(1,    `rgba(80,140,230,0)`);
+          // Fill the whole canvas height so the gradient is never clipped
           ctx.fillStyle = g;
-          ctx.fillRect(0, Math.max(0, bandY - 70), BW, 140);
+          ctx.fillRect(0, 0, BW, BH);
         }
       }
 
@@ -282,8 +284,8 @@ function FogLayer({ nodes, externalNodes }: { nodes: MapNodeData[]; externalNode
         }
       }
 
+      // Only guild (online) nodes pulse — ally nodes stay static so our network stands out
       for (const node of online) drawPings(node.lat, node.lng, "0,255,136");
-      for (const ext of extNodesRef.current) drawPings(ext.lat, ext.lng, "96,165,250");
 
       rafRef.current = requestAnimationFrame(draw);
     }
