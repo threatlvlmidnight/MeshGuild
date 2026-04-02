@@ -654,7 +654,7 @@ export default function NodeDetail() {
                     );
                   }}
                 />
-                <Bar dataKey="peers" radius={[2, 2, 0, 0]} style={{ cursor: "pointer" }} onClick={(data) => { const d = data as { day: string; nodes: string[] }; setSelectedDayNodes(d.nodes.length > 0 ? { day: d.day, nodes: d.nodes } : null); }}>
+                <Bar dataKey="peers" radius={[2, 2, 0, 0]} style={{ cursor: "pointer" }} onClick={(data) => { const d = data as unknown as { day: string; nodes: string[] }; setSelectedDayNodes(d.nodes.length > 0 ? { day: d.day, nodes: d.nodes } : null); }}>
                   {peerStats.map((entry, idx) => (
                     <Cell
                       key={idx}
