@@ -82,6 +82,21 @@ export default function MapPage() {
         console.error("[MAP] node_locations error:", locError);
       }
 
+      // Always fetch ally nodes — independent of whether guild nodes have locations
+      const { data: extData } = await client
+        .from("external_nodes")
+        .select("id, name, lat, lng");
+      setExternalNodes(
+        (extData ?? []).map(
+          (e: { id: string; name: string | null; lat: number; lng: number }) => ({
+            id: e.id,
+            name: e.name,
+            lat: e.lat,
+            lng: e.lng,
+          })
+        )
+      );
+
       if (!locations || locations.length === 0) {
         setLoading(false);
         return; // map still shows — nodes stays []
@@ -155,19 +170,6 @@ export default function MapPage() {
       });
 
       setNodes(mapNodes);
-
-      // Fetch external/ally relay nodes
-      const { data: extData } = await client
-        .from("external_nodes")
-        .select("id, name, lat, lng");
-      setExternalNodes(
-        (extData ?? []).map((e: { id: string; name: string | null; lat: number; lng: number }) => ({
-          id: e.id,
-          name: e.name,
-          lat: e.lat,
-          lng: e.lng,
-        }))
-      );
 
       setLoading(false);
     }
