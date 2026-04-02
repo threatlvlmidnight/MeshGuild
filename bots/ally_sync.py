@@ -245,7 +245,8 @@ def run() -> None:
         print(f"  {r['id']}  {r['name'] or '(no name)'}  {r['lat']:.4f}, {r['lng']:.4f}")
 
     if not rows:
-        print("[ally_sync] Nothing new to upsert. Done.")
+        print("[ally_sync] Nothing to upsert. Clearing all existing ally nodes.")
+        client.from_("external_nodes").delete().neq("id", "").execute()
         return
 
     # Upsert — on conflict update position + name + noted_at
@@ -258,6 +259,19 @@ def run() -> None:
     if hasattr(resp, "error") and resp.error:
         print(f"[ally_sync] ERROR upserting: {resp.error}")
         sys.exit(1)
+
+    # Delete stale rows — nodes that were in the table but not in this sync batch
+    # (e.g. seeded test data, nodes that moved out of range, or went offline)
+    live_ids = [r["id"] for r in rows]
+    stale = (
+        client.from_("external_nodes")
+        .delete()
+        .not_.in_("id", live_ids)
+        .execute()
+    )
+    stale_count = len(stale.data) if stale.data else 0
+    if stale_count:
+        print(f"[ally_sync] Removed {stale_count} stale node(s).")
 
     print(f"[ally_sync] Done. {len(rows)} ally node(s) synced at {datetime.now(timezone.utc).isoformat()}")
 
