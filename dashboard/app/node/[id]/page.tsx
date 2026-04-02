@@ -11,11 +11,14 @@ import { ArrowLeft, WifiHigh, WifiSlash, UserCircle, Trophy, Cards, ChartLine, T
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
 
 interface TelemetryPoint {
@@ -108,6 +111,7 @@ export default function NodeDetail() {
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
   const [hasGridPresenceBadge, setHasGridPresenceBadge] = useState(false);
+  const [peerStats, setPeerStats] = useState<{ day: string; peers: number }[]>([]);
 
   useEffect(() => {
     const client = getSupabase();
@@ -138,7 +142,7 @@ export default function NodeDetail() {
       const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
 
-      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }, { data: ownerData }, { data: xpHourData }, { data: xpTodayData }, { data: locationData }] = await Promise.all([
+      const [{ data: nodeData }, { data: telemData }, { data: achData }, { data: cardData }, { data: ownerData }, { data: xpHourData }, { data: xpTodayData }, { data: locationData }, { data: peerRaw }] = await Promise.all([
         client.from("nodes").select("*").eq("id", nodeId).single(),
         client
           .from("telemetry")
@@ -177,6 +181,11 @@ export default function NodeDetail() {
           .select("*")
           .eq("node_id", nodeId)
           .maybeSingle(),
+        client
+          .from("telemetry")
+          .select("timestamp, node_id")
+          .neq("node_id", nodeId)
+          .gte("timestamp", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
       ]);
 
       // Compute XP rate
@@ -193,6 +202,21 @@ export default function NodeDetail() {
       setTelemetry(telemData ?? []);
       setAchievements(achData ?? []);
       setCards(cardData ?? []);
+      // Compute daily unique peer counts from raw telemetry
+      const peerByDay: Record<string, Set<string>> = {};
+      for (const row of (peerRaw ?? []) as { timestamp: string; node_id: string }[]) {
+        const day = row.timestamp.slice(0, 10);
+        if (!peerByDay[day]) peerByDay[day] = new Set();
+        peerByDay[day].add(row.node_id);
+      }
+      // Fill last 30 days so chart has no gaps
+      const peerDays: { day: string; peers: number }[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+        const key = d.toISOString().slice(0, 10);
+        peerDays.push({ day: key.slice(5), peers: peerByDay[key]?.size ?? 0 });
+      }
+      setPeerStats(peerDays);
       setNodeLocation(locationData ?? null);
       if (ownerData) {
         setOwnership(ownerData);
@@ -544,6 +568,71 @@ export default function NodeDetail() {
         {node.created_at && (
           <div className="text-terminal-muted text-xs font-mono mb-8">
             First signal {formatDistanceToNow(new Date(node.created_at), { addSuffix: true })} — {format(new Date(node.created_at), "MMM d, yyyy")}
+          </div>
+        )}
+
+        {/* Radio Reach */}
+        {peerStats.length > 0 && (
+          <div className="panel p-4 mb-8">
+            <h2 className="text-sm font-mono font-bold text-terminal-cyan uppercase tracking-widest mb-4 flex items-center gap-2">
+              <WifiHigh size={14} weight="bold" />
+              RADIO REACH
+            </h2>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div>
+                <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">Today</div>
+                <div className="text-terminal-cyan text-2xl font-bold font-mono mt-1">
+                  {peerStats[peerStats.length - 1]?.peers ?? 0}
+                </div>
+              </div>
+              <div>
+                <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">This Week</div>
+                <div className="text-foreground text-2xl font-bold font-mono mt-1">
+                  {Math.max(...peerStats.slice(-7).map((d) => d.peers))}
+                </div>
+              </div>
+              <div>
+                <div className="text-terminal-muted text-[10px] uppercase tracking-widest font-mono">30-Day Peak</div>
+                <div className="text-terminal-gold text-2xl font-bold font-mono mt-1">
+                  {Math.max(...peerStats.map((d) => d.peers))}
+                </div>
+              </div>
+            </div>
+            <p className="text-terminal-muted text-[10px] font-mono mb-3 uppercase tracking-widest">
+              Unique nodes heard per day (last 30 days)
+            </p>
+            <ResponsiveContainer width="100%" height={120}>
+              <BarChart data={peerStats} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fill: "#666", fontSize: 9, fontFamily: "monospace" }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={6}
+                />
+                <YAxis
+                  tick={{ fill: "#666", fontSize: 9, fontFamily: "monospace" }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{ background: "#0d0f14", border: "1px solid #333", borderRadius: 4, fontFamily: "monospace", fontSize: 11 }}
+                  labelStyle={{ color: "#00c8ff" }}
+                  itemStyle={{ color: "#00c8ff" }}
+                  formatter={(v: number) => [`${v} node${v !== 1 ? "s" : ""}`, "Heard"]}
+                />
+                <Bar dataKey="peers" radius={[2, 2, 0, 0]}>
+                  {peerStats.map((entry, idx) => (
+                    <Cell
+                      key={idx}
+                      fill={entry.peers === Math.max(...peerStats.map((d) => d.peers)) ? "#00c8ff" : "#1a4a5a"}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
 
