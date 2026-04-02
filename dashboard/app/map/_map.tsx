@@ -355,6 +355,7 @@ export default function MapView({
                 opacity: 0.30,
                 fillColor: "#60a5fa",
                 fillOpacity: 0.05,
+                interactive: false,
               }}
             />
           )}
@@ -469,6 +470,7 @@ export default function MapView({
                 opacity: 0.30,
                 fillColor: "#00ff88",
                 fillOpacity: 0.05,
+                interactive: false,
               }}
             />
           )}
