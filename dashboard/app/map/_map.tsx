@@ -320,14 +320,13 @@ export default function MapView({
               fillOpacity: 0.9,
             }}
           >
-          <Popup>
+          <Popup className="ally-popup">
             <div
               style={{
                 fontFamily: "monospace",
                 fontSize: "12px",
                 color: "#e0e0e0",
-                background: "#181b22",
-                padding: "4px 0",
+                padding: "10px 14px",
                 minWidth: "200px",
                 lineHeight: "1.7",
               }}
@@ -436,14 +435,13 @@ export default function MapView({
               fillOpacity: 0.85,
             }}
           >
-            <Popup>
+            <Popup className="guild-popup">
               <div
                 style={{
                   fontFamily: "monospace",
                   fontSize: "12px",
                   color: "#e0e0e0",
-                  background: "#181b22",
-                  padding: "4px 0",
+                  padding: "10px 14px",
                   minWidth: "160px",
                   lineHeight: "1.6",
                 }}

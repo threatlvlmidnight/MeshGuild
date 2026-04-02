@@ -79,6 +79,46 @@ body {
   background: #3a4050;
 }
 
+/* ── Leaflet popup overrides ──────────────────────────────────────────────── */
+/* Remove default white card — replaced by our dark terminal style */
+.leaflet-popup-content-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  color: inherit !important;
+}
+
+.leaflet-popup-tip-container {
+  display: none !important;
+}
+
+/* Ally node popup — dark terminal card */
+.ally-popup .leaflet-popup-content-wrapper {
+  background: rgba(13, 17, 23, 0.97) !important;
+  border: 1px solid rgba(96, 165, 250, 0.35) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 18px rgba(96, 165, 250, 0.15), 0 4px 24px rgba(0,0,0,0.7) !important;
+}
+
+/* Guild node popup — dark terminal card */
+.guild-popup .leaflet-popup-content-wrapper {
+  background: rgba(13, 17, 23, 0.97) !important;
+  border: 1px solid rgba(0, 255, 136, 0.25) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 18px rgba(0, 255, 136, 0.12), 0 4px 24px rgba(0,0,0,0.7) !important;
+}
+
+/* Ensure popups always sit above fog canvases (z-448/450) */
+.leaflet-popup-pane {
+  z-index: 600 !important;
+}
+
 /* Print styles for Field Manual PDF export */
 @media print {
   /* Force white page */
