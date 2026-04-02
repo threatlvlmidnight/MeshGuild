@@ -42,10 +42,16 @@ export default function MapPage() {
       setAuthorized(true);
 
       // Fetch opted-in locations
-      const { data: locations } = await client
+      const { data: locations, error: locError } = await client
         .from("node_locations")
         .select("*")
         .eq("opt_in", true);
+
+      console.log("[MAP] node_locations query", { locations, locError });
+
+      if (locError) {
+        console.error("[MAP] node_locations error:", locError);
+      }
 
       if (!locations || locations.length === 0) {
         setLoading(false);

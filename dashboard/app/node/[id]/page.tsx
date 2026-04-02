@@ -246,16 +246,23 @@ export default function NodeDetail() {
     let writeError: { message: string } | null = null;
 
     if (existing) {
-      const { error } = await client
+      const { data: updated, error } = await client
         .from("node_locations")
         .update({ lat, lng, opt_in: true, set_by: profile.id })
-        .eq("node_id", nodeId);
+        .eq("node_id", nodeId)
+        .select();
       writeError = error;
+      console.log("[SAVE PIN] update result", { updated, error });
+      if (!error && (!updated || updated.length === 0)) {
+        toast.error("Could not update pin — you may not own this node");
+        return false;
+      }
     } else {
       const { error } = await client
         .from("node_locations")
         .insert({ node_id: nodeId, lat, lng, opt_in: true, set_by: profile.id });
       writeError = error;
+      console.log("[SAVE PIN] insert result", { error });
     }
 
     if (writeError) {
@@ -264,11 +271,12 @@ export default function NodeDetail() {
     }
 
     // Re-fetch to hydrate state (avoids RLS read-back issues with upsert)
-    const { data: fresh } = await client
+    const { data: fresh, error: fetchError } = await client
       .from("node_locations")
       .select("*")
       .eq("node_id", nodeId)
-      .single();
+      .maybeSingle();
+    console.log("[SAVE PIN] re-fetch", { fresh, fetchError });
 
     if (fresh) setNodeLocation(fresh as NodeLocation);
     return true;
